@@ -9,7 +9,8 @@ import { getDeveloperEngine } from "./engines/registry";
 const examples: Record<string,string> = { json:'{"name":"Integ Tools","private":true,"items":[1,2,3]}', base64:"Hello, 世界!", url:"https://tools.integ.life/search?q=hello world&safe=true", jwt:"eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjMiLCJleHAiOjE5MDAwMDAwMDB9.", regex:"The quick brown fox jumps over the lazy fox.", yaml:'{"name":"Integ","private":true,"tags":["json","yaml"]}', csv:'[{"name":"Ada","role":"Engineer"},{"name":"Lin","role":"Designer"}]', html:'<main class="tool">Safe & local</main>', unicode:"Hello 世界 مرحبا", diff:"alpha\nbeta\ngamma", lines:"pear\napple\npear\nbanana", case:"Private browser tools", headers:"content-type: application/json\ncache-control: no-store", datauri:"Hello, world!", slug:"Private Browser Tools", wordcount:"Fast, private tools that run entirely in your browser." };
 
 function pathParts(){ const p=location.pathname.split('/').filter(Boolean); const locale=(locales.includes(p[0] as Locale)?p[0]:"en") as Locale; return {locale,slug:p[1]}; }
-function nav(locale:Locale,slug?:string){ history.pushState({},"",`/${locale}/${slug||""}`); dispatchEvent(new PopStateEvent("popstate")); }
+function routeUrl(locale:Locale,slug?:string){return `/${locale}/${slug?`${slug}/`:""}`}
+function nav(locale:Locale,slug?:string){ history.pushState({},"",routeUrl(locale,slug)); dispatchEvent(new PopStateEvent("popstate")); }
 function localizeTool(tool:Tool,locale:Locale):Tool{return {...tool,name:localizedName(tool,locale),description:localizedDescription(tool,locale),about:localizedAbout(tool,locale),how:localizedHow(tool,locale)}}
 
 export function App(){
