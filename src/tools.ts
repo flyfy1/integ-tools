@@ -1,0 +1,45 @@
+export type Category = "developer" | "finance";
+export type Tool = { slug: string; name: string; description: string; category: Category; kind: string; keywords: string[]; about: string; how: string };
+const dev = (slug: string, name: string, description: string, kind: string, keywords: string[] = []) => ({ slug, name, description, category: "developer" as const, kind, keywords, about: description + " Processing happens only in this browser.", how: "Paste or enter your data, choose an action, then copy or download the local result." });
+const fin = (slug: string, name: string, description: string, kind: string, keywords: string[] = []) => ({ slug, name, description, category: "finance" as const, kind, keywords, about: description + " Change the assumptions to explore your own scenario.", how: "Enter your assumptions and review the calculated estimate and breakdown." });
+
+export const tools: Tool[] = [
+  dev("json-formatter", "JSON Formatter & Validator", "Format, validate, minify and inspect JSON instantly.", "json", ["beautifier", "tree"]),
+  dev("json-yaml", "JSON ↔ YAML Converter", "Convert JSON to readable YAML and simple YAML back to JSON.", "yaml", ["json", "yaml"]),
+  dev("json-csv", "JSON ↔ CSV Converter", "Convert JSON arrays to CSV and CSV rows to JSON.", "csv", ["json", "csv"]),
+  dev("base64", "Base64 Text & File", "Encode or decode Unicode text and local files with Base64.", "base64", ["encode", "decode", "file"]),
+  dev("url-encoder", "URL Encode, Decode & Parser", "Encode URLs and inspect query parameters.", "url", ["query", "percent"]),
+  dev("html-entities", "HTML Entity Encode & Decode", "Escape HTML safely or decode common entities.", "html", ["escape", "html"]),
+  dev("unicode-escape", "Unicode Escape Converter", "Escape Unicode characters for JSON and JavaScript.", "unicode", ["unicode", "escape"]),
+  dev("jwt-inspector", "JWT Inspector", "Decode JWT headers and claims locally, with expiry details.", "jwt", ["token", "oauth"]),
+  dev("hash-hmac", "SHA-256, SHA-512 & HMAC", "Create browser-native cryptographic hashes and HMAC-SHA256.", "hash", ["sha256", "sha512", "hmac"]),
+  dev("uuid", "UUID v4 Generator", "Generate secure UUID v4 values locally.", "uuid", ["guid", "random"]),
+  dev("password-generator", "Random Secret & Password", "Generate high-entropy passwords and secrets.", "password", ["secret", "random"]),
+  dev("regex-tester", "Regex Tester", "Test JavaScript regular expressions with live matches.", "regex", ["regular expression", "replace"]),
+  dev("text-diff", "Text Diff", "Compare two text blocks line by line.", "diff", ["compare"]),
+  dev("case-converter", "Case Converter", "Convert text to camelCase, snake_case, kebab-case and more.", "case", ["camel", "snake", "slug"]),
+  dev("sort-dedupe-lines", "Sort & Deduplicate Lines", "Sort lines and remove duplicates while preserving local privacy.", "lines", ["sort", "unique"]),
+  dev("timestamp", "Unix Timestamp Converter", "Convert Unix seconds, milliseconds and ISO 8601 dates.", "timestamp", ["date", "epoch"]),
+  dev("timezone-converter", "Timezone Converter", "View a date and time in major world time zones.", "timezone", ["date", "time"]),
+  dev("cron-explainer", "Cron Explainer", "Explain common cron expressions and show upcoming runs.", "cron", ["schedule"]),
+  dev("chmod-calculator", "Chmod Calculator", "Translate Unix permission numbers into rwx permissions.", "chmod", ["permission", "unix"]),
+  dev("color-contrast", "Color Converter & Contrast", "Convert HEX colors and check WCAG contrast.", "color", ["wcag", "rgb"]),
+  dev("px-rem", "PX / REM Converter", "Convert pixels and rems using your root font size.", "pxrem", ["css", "rem"]),
+  dev("curl-to-fetch", "cURL to Fetch", "Turn a common cURL request into browser Fetch code.", "curl", ["api", "fetch"]),
+  dev("http-header-parser", "HTTP Header Parser", "Parse raw HTTP headers into structured values.", "headers", ["http", "api"]),
+  dev("data-uri", "Data URI Generator", "Create or inspect data: URIs for small assets.", "datauri", ["base64", "image"]),
+  dev("slug-generator", "Slug Generator", "Create clean URL slugs from any text.", "slug", ["url", "seo"]),
+  dev("word-counter", "Word Counter", "Count words, characters, lines and reading time.", "wordcount", ["text"]),
+  fin("mortgage-payment", "Mortgage Payment & Amortization", "Calculate fixed-rate monthly payments, total interest and amortization.", "mortgage", ["loan", "amortization"]),
+  fin("mortgage-leverage", "Mortgage Leverage & Downside", "Model property equity, leverage and price-drop downside scenarios.", "leverage", ["property", "loan"]),
+  fin("mortgage-prepayment", "Mortgage Prepayment Calculator", "Estimate the interest and time saved by paying extra.", "prepayment", ["loan", "interest"]),
+  fin("rent-vs-buy", "Rent vs Buy Calculator", "Compare estimated housing costs over a chosen horizon.", "rentbuy", ["home", "property"]),
+  fin("rental-property-return", "Rental Property Return", "Estimate rental yield, annual cash flow and cap rate.", "rental", ["yield", "property"]),
+  fin("compound-interest", "Compound Interest Calculator", "Project savings with monthly contributions and compounding.", "compound", ["invest", "savings"]),
+  fin("fire", "FIRE Calculator", "Estimate a financial independence target and timeline.", "fire", ["retirement"]),
+  fin("loan-payoff-vs-invest", "Loan Payoff vs Invest", "Compare reducing debt with investing a monthly extra amount.", "payoffinvest", ["loan", "invest"]),
+  fin("saas-runway", "SaaS Runway Calculator", "Estimate cash runway from cash, revenue and expenses.", "runway", ["burn", "cash"]),
+  fin("product-profit", "Product Profit Calculator", "Calculate contribution profit, margin and break-even orders.", "profit", ["ecommerce", "margin"]),
+  fin("break-even-roas", "Break-even ROAS Calculator", "Find the minimum ad return needed to avoid a loss.", "roas", ["ads", "ecommerce"]),
+];
+export const findTool = (slug?: string) => tools.find(tool => tool.slug === slug);
