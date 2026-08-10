@@ -436,6 +436,9 @@ const addedNames: Record<
     hi: "फ्रीलांस प्रति घंटा दर",
     ar: "حاسبة سعر العمل الحر",
   },
+  "codex-plan-cost": { zh: "Codex 订阅成本比较器", es: "Comparador de costes de Codex", hi: "Codex प्लान लागत तुलना", ar: "مقارنة تكلفة خطط Codex", ja: "Codex プラン料金比較", id: "Perbandingan Biaya Paket Codex" },
+  "codex-reset-timer": { zh: "Codex 用量重置倒计时", es: "Temporizador de reinicio de Codex", hi: "Codex रीसेट टाइमर", ar: "مؤقت إعادة ضبط Codex", ja: "Codex 使用量リセットタイマー", id: "Timer Reset Penggunaan Codex" },
+  "codex-credit-estimator": { zh: "Codex Credits 估算器", es: "Estimador de créditos Codex", hi: "Codex क्रेडिट अनुमानक", ar: "مقدر أرصدة Codex", ja: "Codex クレジット見積もり", id: "Estimator Kredit Codex" },
 };
 const newNames: Record<"ja" | "id", Record<string, string>> = {
   ja: Object.fromEntries(

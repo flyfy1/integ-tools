@@ -2,8 +2,8 @@
 
 Privacy-first browser utilities and practical calculators for
 [tools.integ.life](https://tools.integ.life). The site is fully static, runs
-tool inputs locally, and publishes 190 indexable pages in English, Chinese,
-Spanish, Hindi, and Arabic.
+tool inputs locally, and publishes 448 indexable pages in English, Chinese,
+Spanish, Hindi, Arabic, Japanese, and Indonesian.
 
 ## Development
 
