@@ -6,7 +6,7 @@
   "engines": { "node": ">=22.13.0" },
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/generate-pages.mjs",
+    "build": "vite build && node scripts/generate-pages.mjs && node scripts/generate-sites-bundle.mjs",
     "preview": "vite preview",
     "test": "npm run build && node --test tests/site.test.mjs",
     "lint": "eslint src scripts --max-warnings=0"
