@@ -6,6 +6,7 @@
   "engines": { "node": ">=22.13.0" },
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/generate-build-version.mjs flyfy1/integ-tools tools.integ.life public/build-version.json",
     "build": "vite build && node scripts/generate-pages.mjs",
     "preview": "vite preview",
     "test": "npm run build && node --test tests/site.test.mjs",
