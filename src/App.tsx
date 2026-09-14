@@ -6,6 +6,7 @@ import { localizedAbout, localizedDescription, localizedHow, localizedName, tran
 import { getCalculator, initialCalculatorValues } from "./calculators";
 import { getDeveloperEngine } from "./engines/registry";
 import { CodexTool } from "./codexTools";
+import { QrCodeTool } from "./qrCodeTool";
 
 const examples: Record<string,string> = { json:'{"name":"Integ Tools","private":true,"items":[1,2,3]}', base64:"Hello, 世界!", url:"https://tools.integ.life/search?q=hello world&safe=true", jwt:"eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjMiLCJleHAiOjE5MDAwMDAwMDB9.", regex:"fox", color:"#111827", yaml:'{"name":"Integ","private":true,"tags":["json","yaml"]}', csv:'[{"name":"Ada","role":"Engineer"},{"name":"Lin","role":"Designer"}]', html:'<main class="tool">Safe & local</main>', unicode:"Hello 世界 مرحبا", diff:"alpha\nbeta\ngamma", lines:"pear\napple\npear\nbanana", case:"Private browser tools", headers:"content-type: application/json\ncache-control: no-store", datauri:"Hello, world!", slug:"Private Browser Tools", wordcount:"Fast, private tools that run entirely in your browser." };
 
@@ -42,7 +43,7 @@ function ToolComments({slug,locale}:{slug:string,locale:Locale}) {
  return <div ref={host}/>;
 }
 
-function ToolBox({tool,locale}:{tool:Tool,locale:Locale}){ if(tool.kind.startsWith("codex-"))return <CodexTool key={tool.kind} kind={tool.kind} locale={locale}/>; if(tool.category==="finance")return <Calculator key={tool.kind} kind={tool.kind} locale={locale}/>; return <DeveloperTool key={tool.kind} kind={tool.kind} locale={locale}/> }
+function ToolBox({tool,locale}:{tool:Tool,locale:Locale}){ if(tool.kind==="qrcode")return <QrCodeTool locale={locale}/>; if(tool.kind.startsWith("codex-"))return <CodexTool key={tool.kind} kind={tool.kind} locale={locale}/>; if(tool.category==="finance")return <Calculator key={tool.kind} kind={tool.kind} locale={locale}/>; return <DeveloperTool key={tool.kind} kind={tool.kind} locale={locale}/> }
 function Actions({run,reset,locale}:{run:()=>void,reset:()=>void,locale:Locale}){const t=copy[locale];return <div className="actions"><button className="primary" onClick={run}>{t.run}</button><button onClick={reset}>{t.reset}</button></div>}
 
 function DeveloperTool({kind,locale}:{kind:string,locale:Locale}){

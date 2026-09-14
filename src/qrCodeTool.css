@@ -1,0 +1,155 @@
+.qr-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: 36px;
+  align-items: start;
+}
+
+.qr-controls label {
+  font: 700 11px ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.qr-content textarea {
+  display: block;
+  width: 100%;
+  min-height: 150px;
+  margin-top: 8px;
+  padding: 16px;
+  resize: vertical;
+  font: 15px/1.55 ui-monospace, monospace;
+}
+
+.qr-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.qr-options select,
+.qr-options > label > input,
+.color-input {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+}
+
+.qr-options select,
+.qr-options > label > input {
+  padding: 11px 12px;
+}
+
+.color-input {
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.color-input input {
+  width: 34px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+}
+
+.color-input span {
+  font: 600 13px ui-monospace, monospace;
+  letter-spacing: 0;
+}
+
+.qr-hint {
+  margin: 20px 0 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--teal);
+  color: #59625e;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.qr-preview {
+  display: grid;
+  place-items: center;
+  min-height: 420px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  background: #ece7dc;
+}
+
+.qr-code-preview {
+  display: block;
+  width: min(100%, 360px);
+  height: auto;
+  background: #fff;
+  box-shadow: 0 10px 30px #14201d24;
+}
+
+.qr-status {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.qr-status strong {
+  display: block;
+  font-size: 16px;
+}
+
+.qr-status span {
+  display: block;
+  margin-top: 4px;
+  color: #6c746f;
+  font: 12px ui-monospace, monospace;
+}
+
+.qr-empty {
+  max-width: 280px;
+  color: #6c746f;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.qr-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.qr-actions button {
+  padding: 11px 16px;
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+.qr-actions .primary {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+.qr-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+@media (width <= 850px) {
+  .qr-layout,
+  .qr-options {
+    grid-template-columns: 1fr;
+  }
+
+  .qr-preview {
+    min-height: 300px;
+  }
+
+  .qr-actions {
+    flex-wrap: wrap;
+  }
+
+  .qr-actions button {
+    flex: 1 1 auto;
+  }
+}

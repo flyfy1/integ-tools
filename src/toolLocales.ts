@@ -406,6 +406,14 @@ const addedNames: Record<
     hi: "PII और सीक्रेट रेडैक्टर",
     ar: "حجب البيانات والأسرار",
   },
+  "qr-code-generator": {
+    zh: "二维码生成器",
+    es: "Generador de códigos QR",
+    hi: "QR कोड जनरेटर",
+    ar: "مولد رمز QR",
+    ja: "QR コード生成",
+    id: "Generator Kode QR",
+  },
   "percentage-change": {
     zh: "百分比变化计算器",
     es: "Calculadora de cambio porcentual",

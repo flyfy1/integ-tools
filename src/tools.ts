@@ -28,6 +28,7 @@ export const tools: Tool[] = [
   dev("curl-to-fetch", "cURL to Fetch", "Turn a common cURL request into browser Fetch code.", "curl", ["api", "fetch"]),
   dev("http-header-parser", "HTTP Header Parser", "Parse raw HTTP headers into structured values.", "headers", ["http", "api"]),
   dev("data-uri", "Data URI Generator", "Create or inspect data: URIs for small assets.", "datauri", ["base64", "image"]),
+  dev("qr-code-generator", "QR Code Generator", "Create customizable QR codes for links and text, then download PNG or SVG files.", "qrcode", ["qr code", "barcode", "二维码", "png", "svg"]),
   dev("slug-generator", "Slug Generator", "Create clean URL slugs from any text.", "slug", ["url", "seo"]),
   dev("word-counter", "Word Counter", "Count words, characters, lines and reading time.", "wordcount", ["text"]),
   dev("json-to-typescript", "JSON to TypeScript", "Generate TypeScript interfaces from JSON objects and API responses.", "json-typescript", ["json", "typescript", "interface", "api"]),
