@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenRing｜开源力感运动控制器方案</title>
+  <meta name="description" content="OpenRing 产品概念与工程路线：从 Hall 位移验证、应变片测力，到摄像头、Ring 与 IMU 融合的语义动作平台。">
+  <link rel="canonical" href="https://tools.integ.life/ring/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:title" content="OpenRing｜开源力感运动控制器方案">
+  <meta property="og:description" content="一份从传感器选型、BOM、信号链到多模态游戏体验的开放式工程提案。">
+  <meta property="og:url" content="https://tools.integ.life/ring/">
+  <meta name="theme-color" content="#0b1114">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "OpenRing：开源力感运动控制器方案",
+    "description": "从 Hall 位移验证、应变片测力，到摄像头、Ring 与 IMU 融合的语义动作平台。",
+    "inLanguage": "zh-CN",
+    "mainEntityOfPage": "https://tools.integ.life/ring/",
+    "url": "https://tools.integ.life/ring/"
+  }
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #eef1e8;
+      --muted: #a6b0aa;
+      --dim: #68736f;
+      --base: #0b1114;
+      --panel: #10191c;
+      --panel-2: #152125;
+      --line: #2b3a3e;
+      --signal: #d8f63b;
+      --signal-soft: rgba(216, 246, 59, .12);
+      --cyan: #7fd5d0;
+      --danger: #ff8f70;
+      --max: 76rem;
+      --radius: 1.1rem;
+      --shadow: 0 24px 70px rgba(0, 0, 0, .26);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      font-synthesis: none;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 20rem;
+      background:
+        linear-gradient(rgba(127, 213, 208, .025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(127, 213, 208, .025) 1px, transparent 1px),
+        var(--base);
+      background-size: 2rem 2rem;
+      color: var(--ink);
+      font-size: 1rem;
+      line-height: 1.75;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: inherit; text-decoration-thickness: .08em; text-underline-offset: .24em; }
+    a:hover { color: var(--signal); }
+    :focus-visible { outline: 3px solid var(--signal); outline-offset: 4px; }
+    ::selection { background: var(--signal); color: var(--base); }
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: .75rem;
+      left: .75rem;
+      padding: .7rem 1rem;
+      min-height: 44px;
+      background: var(--signal);
+      color: var(--base);
+      transform: translateY(-180%);
+      transition: transform .18s ease;
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .wrap { width: min(calc(100% - 2rem), var(--max)); margin-inline: auto; }
+    .eyebrow, .label, .meta, code, .mono {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      letter-spacing: .055em;
+    }
+    .eyebrow { margin: 0 0 1rem; color: var(--signal); font-size: .8rem; text-transform: uppercase; }
+    .topbar {
+      position: sticky;
+      z-index: 20;
+      top: 0;
+      border-bottom: 1px solid rgba(127, 213, 208, .14);
+      background: rgba(11, 17, 20, .88);
+      backdrop-filter: blur(18px);
+    }
+    .topbar-inner { display: flex; min-height: 4rem; align-items: center; justify-content: space-between; gap: 1rem; }
+    .brand { display: flex; align-items: center; gap: .75rem; font-weight: 760; text-decoration: none; }
+    .brand-mark { width: 1.25rem; height: 1.25rem; border: 4px solid var(--signal); border-radius: 50%; box-shadow: inset 0 0 0 2px var(--base); }
+    .nav { display: flex; align-items: center; gap: .2rem; overflow-x: auto; scrollbar-width: none; }
+    .nav a { display: inline-flex; min-height: 44px; align-items: center; padding: .45rem .7rem; color: var(--muted); font-size: .86rem; text-decoration: none; white-space: nowrap; }
+    .nav a:hover { color: var(--ink); }
+
+    .hero { padding: clamp(3.5rem, 8vw, 7.5rem) 0 3rem; overflow: hidden; }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(19rem, .8fr); gap: clamp(2rem, 6vw, 6.5rem); align-items: center; }
+    h1, h2, h3 { margin-top: 0; letter-spacing: -.035em; line-height: 1.14; }
+    h1 { max-width: 11ch; margin-bottom: 1.4rem; font-size: clamp(3.2rem, 8vw, 7.2rem); font-weight: 820; }
+    h1 span { display: block; color: var(--signal); }
+    h2 { margin-bottom: 1.5rem; font-size: clamp(2rem, 4vw, 3.6rem); }
+    h3 { margin-bottom: .7rem; font-size: 1.15rem; }
+    .lede { max-width: 41rem; margin: 0; color: #ced5cf; font-size: clamp(1.1rem, 1.8vw, 1.35rem); line-height: 1.7; }
+    .verdict { display: flex; gap: .8rem; align-items: flex-start; margin: 2rem 0 0; color: var(--muted); }
+    .verdict b { color: var(--ink); }
+    .status { flex: none; width: .7rem; height: .7rem; margin-top: .55rem; border-radius: 50%; background: var(--signal); box-shadow: 0 0 0 .3rem var(--signal-soft); }
+    .ring-plate {
+      position: relative;
+      min-height: 29rem;
+      border: 1px solid var(--line);
+      border-radius: 50% 50% var(--radius) var(--radius);
+      background: radial-gradient(circle at 50% 42%, rgba(216, 246, 59, .08), transparent 43%), var(--panel);
+      box-shadow: var(--shadow);
+      isolation: isolate;
+    }
+    .ring-plate::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 13% 12% 18%;
+      border: clamp(.9rem, 2.3vw, 1.5rem) solid var(--line);
+      border-top-color: var(--signal);
+      border-radius: 50%;
+      transform: scaleX(.86);
+    }
+    .bridge {
+      position: absolute;
+      top: 16%;
+      left: 50%;
+      display: flex;
+      width: 48%;
+      min-height: 3.1rem;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--signal);
+      background: #11191b;
+      color: var(--signal);
+      transform: translateX(-50%);
+      font-size: .75rem;
+    }
+    .ring-notes { position: absolute; right: 7%; bottom: 7%; left: 7%; display: grid; grid-template-columns: repeat(3, 1fr); gap: .55rem; }
+    .ring-note { padding: .65rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem; line-height: 1.4; }
+    .ring-note strong { display: block; margin-top: .2rem; color: var(--ink); font-size: .88rem; }
+
+    .summary-strip { border-block: 1px solid var(--line); background: rgba(16, 25, 28, .78); }
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+    .summary-item { min-height: 8rem; padding: 1.4rem 1.5rem; border-left: 1px solid var(--line); }
+    .summary-item:last-child { border-right: 1px solid var(--line); }
+    .summary-item .meta { color: var(--dim); font-size: .75rem; }
+    .summary-item strong { display: block; margin-top: .3rem; font-size: 1.08rem; }
+
+    section { scroll-margin-top: 5rem; padding: clamp(4.5rem, 9vw, 8rem) 0; }
+    section + section { border-top: 1px solid var(--line); }
+    .section-head { display: grid; grid-template-columns: minmax(12rem, .5fr) minmax(0, 1fr); gap: 2rem 4rem; margin-bottom: 3rem; }
+    .section-head p { max-width: 46rem; margin: 0; color: var(--muted); font-size: 1.05rem; }
+    .callout { padding: 1rem 1.2rem; border-left: 3px solid var(--signal); background: var(--signal-soft); color: #dce6cf; }
+
+    .path-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .path-card { position: relative; min-height: 18rem; padding: 1.5rem; border: 1px solid var(--line); background: var(--panel); }
+    .path-card.recommended { border-color: rgba(216, 246, 59, .6); background: linear-gradient(155deg, var(--signal-soft), transparent 52%), var(--panel); }
+    .path-id { display: inline-flex; min-height: 2rem; align-items: center; color: var(--signal); font-size: .75rem; }
+    .path-card p { color: var(--muted); }
+    .path-card ul { margin: 1rem 0 0; padding-left: 1.2rem; }
+    .path-card li { margin: .4rem 0; }
+
+    .table-shell { overflow-x: auto; border: 1px solid var(--line); background: var(--panel); }
+    table { width: 100%; min-width: 55rem; border-collapse: collapse; text-align: left; }
+    caption { padding: 1rem 1.2rem; color: var(--muted); text-align: left; }
+    th, td { padding: 1rem 1.15rem; border-top: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--dim); font: .75rem/1.4 "SFMono-Regular", Consolas, monospace; letter-spacing: .06em; text-transform: uppercase; }
+    tbody tr:hover { background: rgba(127, 213, 208, .035); }
+    td:first-child { color: var(--ink); font-weight: 720; }
+    .rank { color: var(--signal); white-space: nowrap; }
+    .avoid { color: var(--danger); }
+
+    .demo {
+      display: grid;
+      grid-template-columns: minmax(0, .85fr) minmax(19rem, 1.15fr);
+      gap: 1px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--line);
+      box-shadow: var(--shadow);
+    }
+    .demo-copy, .demo-panel { padding: clamp(1.4rem, 4vw, 2.8rem); background: var(--panel); }
+    .demo-copy p { color: var(--muted); }
+    .sensor-viz { position: relative; height: 8rem; margin: 1rem 0 1.5rem; border-block: 1px solid var(--line); }
+    .sensor, .magnet { position: absolute; top: 50%; width: 3.8rem; height: 2.4rem; transform: translateY(-50%); }
+    .sensor { left: 0; display: grid; place-items: center; border: 1px solid var(--cyan); color: var(--cyan); font-size: .68rem; }
+    .magnet { right: 0; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 1px solid var(--ink); }
+    .magnet span { display: grid; place-items: center; font: .7rem "SFMono-Regular", Consolas, monospace; }
+    .magnet span:last-child { background: var(--ink); color: var(--base); }
+    .gap-line { position: absolute; top: 50%; right: 4.5rem; left: 4.5rem; height: 1px; border-top: 1px dashed var(--dim); }
+    .gap-line::after { content: attr(data-gap); position: absolute; top: .55rem; left: 50%; color: var(--muted); font: .75rem "SFMono-Regular", Consolas, monospace; transform: translateX(-50%); }
+    .field { position: absolute; top: calc(50% - 1.25rem); right: 4.3rem; width: var(--field, 30%); height: 2.5rem; background: linear-gradient(90deg, transparent, rgba(216, 246, 59, .2)); border-right: 2px solid var(--signal); transition: width .18s ease; }
+    label { display: block; min-height: 44px; color: var(--ink); font-weight: 680; }
+    input[type="range"] {
+      width: 100%;
+      height: 44px;
+      margin: 0;
+      accent-color: var(--signal);
+      cursor: pointer;
+    }
+    .range-labels { display: flex; justify-content: space-between; color: var(--dim); font-size: .74rem; }
+    .readouts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .65rem; margin-top: 1.6rem; }
+    .readout { min-height: 6.5rem; padding: .85rem; border: 1px solid var(--line); background: var(--base); }
+    .readout span { display: block; color: var(--dim); font-size: .7rem; }
+    .readout output { display: block; margin-top: .3rem; color: var(--signal); font: 1.5rem/1.2 "SFMono-Regular", Consolas, monospace; }
+    .meter { height: .45rem; margin-top: .7rem; overflow: hidden; background: var(--line); }
+    .meter > i { display: block; width: var(--level, 0%); height: 100%; background: var(--signal); transition: width .18s ease; }
+    .fineprint { color: var(--dim); font-size: .78rem; }
+
+    .build-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 1.2rem; }
+    .bom, .checklist { padding: clamp(1.4rem, 3vw, 2rem); border: 1px solid var(--line); background: var(--panel); }
+    .bom-list { list-style: none; margin: 1.5rem 0 0; padding: 0; }
+    .bom-list li { display: grid; grid-template-columns: 2.2rem 1fr; gap: .8rem; padding: .9rem 0; border-top: 1px solid var(--line); }
+    .bom-list .qty { color: var(--signal); font: .78rem "SFMono-Regular", Consolas, monospace; }
+    .bom-list small { display: block; color: var(--muted); font-size: .85rem; }
+    .steps { margin: 1.4rem 0 0; padding: 0; list-style: none; counter-reset: steps; }
+    .steps li { position: relative; min-height: 4.6rem; padding: .2rem 0 1rem 3.4rem; counter-increment: steps; }
+    .steps li::before { content: counter(steps, decimal-leading-zero); position: absolute; left: 0; top: 0; color: var(--signal); font: .9rem "SFMono-Regular", Consolas, monospace; }
+    .steps li:not(:last-child)::after { content: ""; position: absolute; top: 1.6rem; bottom: .2rem; left: .78rem; border-left: 1px solid var(--line); }
+    .steps small { display: block; color: var(--muted); font-size: .87rem; }
+
+    .pipeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: .65rem; }
+    .node { position: relative; min-height: 8rem; padding: 1rem; border: 1px solid var(--line); background: var(--panel); }
+    .node:not(:last-child)::after { content: "→"; position: absolute; z-index: 2; top: 50%; right: -.62rem; color: var(--signal); transform: translate(50%, -50%); }
+    .node .meta { color: var(--signal); font-size: .7rem; }
+    .node strong { display: block; margin: .35rem 0; }
+    .node small { color: var(--muted); font-size: .78rem; line-height: 1.45; }
+    .protocol { margin-top: 1rem; padding: 1.2rem; border: 1px solid var(--line); background: #080d0f; color: #cbd5cf; overflow-x: auto; }
+    .protocol code { white-space: pre; font-size: .82rem; }
+
+    .landscape { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+    .landscape-card { padding: 1.6rem; border: 1px solid var(--line); background: var(--panel); }
+    .landscape-card p { color: var(--muted); }
+    .project-list { margin: 1rem 0 0; padding: 0; list-style: none; }
+    .project-list li { padding: .8rem 0; border-top: 1px solid var(--line); }
+    .project-list b { color: var(--cyan); }
+    .gap-card { background: linear-gradient(145deg, var(--signal-soft), transparent 58%), var(--panel); }
+
+    .fusion { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; align-items: stretch; }
+    .fusion-source, .semantic { padding: 1.5rem; border: 1px solid var(--line); background: var(--panel); }
+    .fusion-source ul { margin: 1rem 0 0; padding-left: 1.15rem; color: var(--muted); }
+    .semantic { border-color: var(--signal); background: var(--signal-soft); }
+    .equation { grid-column: 1 / -1; padding: 1rem; color: var(--signal); text-align: center; font: clamp(.9rem, 2vw, 1.1rem) "SFMono-Regular", Consolas, monospace; }
+
+    .games { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+    .game { min-height: 17rem; padding: 1.5rem; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(16, 25, 28, .72); }
+    .game .num { color: var(--signal); font-size: .75rem; }
+    .game p { color: var(--muted); }
+    .game.featured { background: linear-gradient(155deg, rgba(216, 246, 59, .12), transparent 60%), var(--panel); }
+
+    .roadmap { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+    .roadmap::before { content: ""; position: absolute; top: 1.1rem; right: 12%; left: 12%; border-top: 1px solid var(--line); }
+    .phase { position: relative; padding-top: 2.6rem; }
+    .phase::before { content: ""; position: absolute; top: .75rem; left: 0; width: .72rem; height: .72rem; border: 2px solid var(--signal); border-radius: 50%; background: var(--base); }
+    .phase .meta { color: var(--signal); font-size: .72rem; }
+    .phase p { color: var(--muted); }
+
+    footer { padding: 3rem 0; border-top: 1px solid var(--line); color: var(--muted); }
+    .footer-grid { display: grid; grid-template-columns: 1fr auto; gap: 2rem; align-items: start; }
+    .source-link { display: inline-flex; min-height: 44px; align-items: center; color: var(--ink); }
+    .disclaimer { max-width: 47rem; margin: .5rem 0 0; font-size: .88rem; }
+    .back-top { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--line); text-decoration: none; }
+
+    @media (max-width: 900px) {
+      .hero-grid, .section-head, .demo, .build-grid { grid-template-columns: 1fr; }
+      .ring-plate { width: min(100%, 32rem); margin-inline: auto; }
+      .path-grid, .games { grid-template-columns: repeat(2, 1fr); }
+      .pipeline { grid-template-columns: repeat(3, 1fr); }
+      .node:nth-child(3)::after { display: none; }
+      .roadmap { grid-template-columns: repeat(2, 1fr); }
+      .roadmap::before { display: none; }
+    }
+
+    @media (max-width: 620px) {
+      .wrap { width: min(calc(100% - 1.25rem), var(--max)); }
+      .topbar-inner { display: block; padding-top: .35rem; }
+      .brand { min-height: 44px; }
+      .nav { margin-inline: -.35rem; padding-bottom: .35rem; }
+      .hero { padding-top: 3rem; }
+      h1 { font-size: clamp(3rem, 17vw, 4.7rem); }
+      .ring-plate { min-height: 23rem; }
+      .summary-grid, .path-grid, .landscape, .fusion, .games, .roadmap { grid-template-columns: 1fr; }
+      .summary-item, .summary-item:last-child { min-height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .summary-item:last-child { border-bottom: 0; }
+      .readouts { grid-template-columns: 1fr; }
+      .readout { min-height: auto; }
+      .pipeline { grid-template-columns: 1fr; }
+      .node:not(:last-child)::after { top: auto; right: 50%; bottom: -.7rem; display: block; transform: translate(50%, 50%) rotate(90deg); }
+      .equation { grid-column: 1; }
+      .footer-grid { grid-template-columns: 1fr; }
+      .back-top { justify-self: start; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+
+    @media print {
+      :root { color-scheme: light; --ink: #111; --muted: #444; --dim: #666; --base: #fff; --panel: #fff; --panel-2: #fff; --line: #aaa; --signal: #335600; --signal-soft: #f1f5df; --cyan: #075e59; }
+      body { background: #fff; color: #111; font-size: 10pt; }
+      .topbar, .skip-link, .demo-panel, .back-top { display: none !important; }
+      .hero, section { padding: 2rem 0; break-inside: avoid; }
+      .hero-grid, .section-head, .build-grid, .landscape { grid-template-columns: 1fr; }
+      .ring-plate { min-height: 17rem; box-shadow: none; }
+      .path-card, .game, .landscape-card, .bom, .checklist, .node { break-inside: avoid; }
+      a { color: #111; }
+      a[href]::after { content: " (" attr(href) ")"; font-size: .8em; }
+      .source-link::after { overflow-wrap: anywhere; }
+    }
+  </style>
+</head>
+<body id="top">
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="#top" aria-label="OpenRing 首页">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>OPENRING / 方案 0.1</span>
+      </a>
+      <nav class="nav" aria-label="页面导航">
+        <a href="#paths">传感路线</a>
+        <a href="#build">动手清单</a>
+        <a href="#architecture">系统架构</a>
+        <a href="#games">游戏场景</a>
+        <a href="#roadmap">路线图</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <article>
+      <header class="hero">
+        <div class="wrap hero-grid">
+          <div>
+            <p class="eyebrow">Open-source force-sensitive exercise controller</p>
+            <h1>把形变，变成<span>游戏语言。</span></h1>
+            <p class="lede">OpenRing 不是复刻一个外壳，而是探索一套开放的力感运动控制器：弹性结构提供阻力，传感器读取压与拉，摄像头和 IMU 补齐姿态与运动，最终输出可供游戏理解的“语义动作”。</p>
+            <p class="verdict"><span class="status" aria-hidden="true"></span><span><b>工程判断：可行。</b> 最大不确定性不在“能否读到形变”，而在打印结构能否长期、稳定地回弹与复现同一读数。</span></p>
+          </div>
+          <div class="ring-plate" role="img" aria-label="OpenRing 概念结构图：环形弹性主体顶部连接集中形变的测量梁">
+            <div class="bridge mono">FLEXURE / SENSING BEAM</div>
+            <div class="ring-notes" aria-hidden="true">
+              <div class="ring-note">STRUCTURE<strong>弹性主体</strong></div>
+              <div class="ring-note">SENSE<strong>局部形变</strong></div>
+              <div class="ring-note">OUTPUT<strong>−1.0…+1.0</strong></div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="summary-strip" aria-label="核心结论">
+        <div class="wrap summary-grid">
+          <div class="summary-item"><span class="meta">START HERE</span><strong>线性 Hall + 磁铁，先闭环</strong></div>
+          <div class="summary-item"><span class="meta">MEASURE FORCE</span><strong>应变片 + 24-bit AFE，做终版</strong></div>
+          <div class="summary-item"><span class="meta">PRODUCT EDGE</span><strong>Pose + Force + Motion，产出语义动作</strong></div>
+        </div>
+      </div>
+
+      <section id="paths">
+        <div class="wrap">
+          <div class="section-head">
+            <div><p class="eyebrow">01 / sensing paths</p><h2>先证明可玩，<br>再追求测力。</h2></div>
+            <div><p>三条路线分别回答三个问题：能否快速得到连续输入、能否把微小位移放大成干净信号、能否最终测出更稳定的真实结构应变。不要在第一版同时攻克全部问题。</p></div>
+          </div>
+          <div class="path-grid">
+            <article class="path-card recommended">
+              <span class="path-id mono">V0 · 最快原型</span>
+              <h3>线性 Hall / 距离</h3>
+              <p>磁铁与 SS49E、DRV5055 或 A1324/25/26 的间距变化，映射为连续模拟电压。</p>
+              <ul><li>机械简单、无接触</li><li>ESP32 ADC 可直接读取</li><li>预留约 5–25 mm 可调位</li></ul>
+            </article>
+            <article class="path-card">
+              <span class="path-id mono">V1 · 机械放大</span>
+              <h3>磁角度 / AS5600</h3>
+              <p>用连杆或柔性铰链把数毫米形变变成明显的磁铁旋转，再读取绝对角度。</p>
+              <ul><li>数字 I²C 输出</li><li>适合 3D 打印机构</li><li>比直接贴应变片更易调试</li></ul>
+            </article>
+            <article class="path-card">
+              <span class="path-id mono">V2 · 最终测力</span>
+              <h3>应变片 / 电桥</h3>
+              <p>把形变集中到测量梁，由应变片、电桥与高增益 24-bit ADC 读取微小阻值变化。</p>
+              <ul><li>NAU7802 优先，HX711 易入门</li><li>半桥/全桥利于灵敏度与温漂</li><li>贴片位置比 ADC 型号更关键</li></ul>
+            </article>
+          </div>
+
+          <div class="table-shell" style="margin-top: 1.2rem">
+            <table>
+              <caption>传感路线对照——测到的物理量不同，最终都需通过标定映射为 compression / force。</caption>
+              <thead><tr><th>方案</th><th>典型器件</th><th>实际测量</th><th>难度</th><th>判断</th></tr></thead>
+              <tbody>
+                <tr><td>线性 Hall</td><td>SS49E / DRV5055 / A1324</td><td>磁场 → 间距变化</td><td>★★</td><td class="rank">首选 PoC</td></tr>
+                <tr><td>应变片</td><td>NAU7802 / HX711 / ADS1232</td><td>材料微应变</td><td>★★★★</td><td class="rank">首选终版</td></tr>
+                <tr><td>磁角度</td><td>AS5600 / MT6701</td><td>相对旋转角度</td><td>★★</td><td>优秀第二版</td></tr>
+                <tr><td>ToF 距离</td><td>VL53L4CD / VL53L1X</td><td>两点间距</td><td>★★</td><td>易理解，受光路与目标面影响</td></tr>
+                <tr><td>电容</td><td>FDC1004 / FDC2214</td><td>电极距离 / 电容</td><td>★★★★</td><td>灵敏，但易受手与湿度干扰</td></tr>
+                <tr><td>Flex sensor</td><td>MCU ADC</td><td>弯曲引起的阻值变化</td><td>★</td><td>重复性、迟滞与寿命一般</td></tr>
+                <tr><td>Piezo</td><td>ADC / 放大器</td><td>动态冲击与振动</td><td>★★</td><td class="avoid">不适合持续静态力</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="callout"><strong>型号避坑：</strong>A3144 是开关型 Hall，适合判断“到 / 没到”，不适合连续形变；商品标注含混的“44E”也应先确认是 linear / analog output。若只买一个起步型号，选 SS49E。</p>
+        </div>
+      </section>
+
+      <section id="demo">
+        <div class="wrap demo">
+          <div class="demo-copy">
+            <p class="eyebrow">Bench demo / Hall distance</p>
+            <h2>距离不是力，<br>但足够验证闭环。</h2>
+            <p>拖动磁铁与传感器的间距，观察一组来源中的示意 ADC 点如何归一化。实物会受磁铁、器件、安装角度与 ADC 影响，必须重新采样并拟合。</p>
+            <p class="fineprint">归一化约定：此示意中接近传感器为 1.00，远离为 0.00。真实产品还应分别标定 neutral、push max 与 pull max。</p>
+          </div>
+          <div class="demo-panel">
+            <div class="sensor-viz" aria-hidden="true">
+              <div class="sensor mono">HALL</div>
+              <div class="gap-line" id="gapLine" data-gap="12.0 mm"></div>
+              <div class="field" id="field"></div>
+              <div class="magnet"><span>N</span><span>S</span></div>
+            </div>
+            <label for="distance">Hall 与磁铁间距：<output id="distanceValue" for="distance">12.0 mm</output></label>
+            <input id="distance" type="range" min="6" max="20" value="12" step="0.1" aria-describedby="demoNote">
+            <div class="range-labels mono"><span>6 mm / 近</span><span>20 mm / 远</span></div>
+            <div class="readouts" aria-live="polite">
+              <div class="readout"><span class="mono">RAW ADC / 示意</span><output id="adcValue">2372</output></div>
+              <div class="readout"><span class="mono">NORMALIZED</span><output id="normalizedValue">0.35</output><div class="meter" aria-hidden="true"><i id="meterFill"></i></div></div>
+              <div class="readout"><span class="mono">STATE</span><output id="stateValue">轻压</output></div>
+            </div>
+            <p id="demoNote" class="fineprint">插值锚点来自原讨论中的示意值：20 / 15 / 10 / 8 / 6 mm 对应 2050 / 2180 / 2500 / 2800 / 3300 ADC。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="build">
+        <div class="wrap">
+          <div class="section-head">
+            <div><p class="eyebrow">02 / build it</p><h2>一张能开工的<br>BOM 与清单。</h2></div>
+            <div><p>先打印 100–150 mm 弧形试件，而不是完整圆环。把“压约 5 mm → 连续、可复现的信号”跑通，剩下的才主要是机械设计问题。</p></div>
+          </div>
+          <div class="build-grid">
+            <article class="bom">
+              <h3>最快 PoC / Hall 路线</h3>
+              <ul class="bom-list">
+                <li><span class="qty">×1</span><span>ESP32<small>采样、滤波与 BLE；已有即可</small></span></li>
+                <li><span class="qty">×1</span><span>SS49E 或 DRV5055<small>必须是线性模拟 Hall，不是 A3144 开关</small></span></li>
+                <li><span class="qty">×1</span><span>小型钕磁铁<small>来源建议尺寸为 5×3 mm 或 6×3 mm</small></span></li>
+                <li><span class="qty">×1</span><span>弧形试件 + 可调滑槽<small>PETG / PA / 玻纤尼龙，留出距离调节</small></span></li>
+              </ul>
+              <h3 style="margin-top: 2rem">应变升级补充</h3>
+              <ul class="bom-list">
+                <li><span class="qty">×2/4</span><span>BX120-3AA 120Ω 应变片<small>半桥或全桥；单片四分之一桥需补精密桥臂</small></span></li>
+                <li><span class="qty">×1</span><span>NAU7802 或 HX711 模块<small>现成模块优先；ADS1232 裸 IC 还需外围电路与 PCB</small></span></li>
+                <li><span class="qty">若干</span><span>120Ω / 0.1% 低温漂电阻<small>四分之一桥或半桥需要；约 10–25 ppm/°C</small></span></li>
+                <li><span class="qty">×1</span><span>应变片专用胶<small>胶层应薄且硬，先打磨、清洁与脱脂</small></span></li>
+              </ul>
+            </article>
+            <article class="checklist">
+              <h3>台架验证 / Done 才进入整环</h3>
+              <ol class="steps">
+                <li><strong>集中形变</strong><small>设计局部 sensing beam；不要把应变片随意贴在整个 PETG 圆环上。</small></li>
+                <li><strong>找工作点</strong><small>移动磁铁，避开过近导致的 Hall 饱和区，确保全行程读数都有变化。</small></li>
+                <li><strong>采 neutral 与极值</strong><small>记录中性、轻压、中压、重压与松手回零；分别考虑 push / pull。</small></li>
+                <li><strong>检查复现与漂移</strong><small>重复压放，观察同一位置是否得到近似读数，并关注打印方向、温度与材料 creep。</small></li>
+                <li><strong>做滤波与标定</strong><small>将 raw ADC 转为 −1.0…+1.0，再计算 velocity、rep count 与 hold time。</small></li>
+                <li><strong>最后再做完整环</strong><small>若追求稳定，Ring 可打印，测量梁改用薄弹簧钢或铝片。</small></li>
+              </ol>
+              <p class="callout"><strong>材料边界：</strong>PLA 不适合高频反复大形变；PETG 更适合验证，但层纹、填充、打印方向、温度和蠕变都会削弱“力 ↔ 读数”的长期稳定性。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="pipeline">
+        <div class="wrap">
+          <div class="section-head">
+            <div><p class="eyebrow">03 / signal pipeline</p><h2>从微小变化，<br>到开放协议。</h2></div>
+            <div><p>硬件不必一开始输出牛顿。游戏首先需要的是方向一致、零点稳定、跨用户可标定的连续值；绝对力值需要额外的机械与砝码标定。</p></div>
+          </div>
+          <div class="pipeline" aria-label="信号处理流程">
+            <div class="node"><span class="meta">01 / STRUCTURE</span><strong>压缩 / 拉伸</strong><small>弹性环与局部测量梁产生可重复形变</small></div>
+            <div class="node"><span class="meta">02 / SENSOR</span><strong>Hall / Gauge</strong><small>间距、角度或微应变转为电信号</small></div>
+            <div class="node"><span class="meta">03 / FRONT END</span><strong>ADC + PGA</strong><small>ESP32 ADC，或 NAU7802 / HX711 / ADS1232</small></div>
+            <div class="node"><span class="meta">04 / FIRMWARE</span><strong>滤波 + 标定</strong><small>零点、正负极值、曲线与重复动作特征</small></div>
+            <div class="node"><span class="meta">05 / OUTPUT</span><strong>开放接口</strong><small>BLE HID、Web Bluetooth、USB HID、OSC 或 WebSocket</small></div>
+          </div>
+          <pre class="protocol" aria-label="建议的开放数据模型"><code>{
+  "force": -1.0,        // pull … 0 … squeeze
+  "velocity": 0.18,
+  "rep_count": 12,
+  "hold_time_ms": 840,
+  "orientation": [0.0, 0.0, 0.0]
+}</code></pre>
+        </div>
+      </section>
+
+      <section id="opensource">
+        <div class="wrap">
+          <div class="section-head">
+            <div><p class="eyebrow">04 / open-source map</p><h2>软件已有路，<br>开放硬件仍缺环。</h2></div>
+            <div><p>现有作品的成熟方向主要是读取原版 Ring-Con、把力值映射到 PC 输入或虚拟场景；“STL + BOM + 应变检测 + ESP32 固件”的完整 DIY 方案仍未形成公认范本。</p></div>
+          </div>
+          <div class="landscape">
+            <article class="landscape-card">
+              <h3>可借鉴的软件生态</h3>
+              <ul class="project-list">
+                <li><b>Ringcon-Driver</b>　读取原版传感值、校准 push / pull，并映射为 PC / X360 控制输入。</li>
+                <li><b>WebHID experiments</b>　在浏览器读取连续 force sensor value，适合参考兼容层与归一化模型。</li>
+                <li><b>SuperLouis64 mods</b>　把原版设备接入其他游戏，证明“力感运动控制器 → 通用游戏输入”的空间。</li>
+                <li><b>osc-ringcon</b>　通过 Bluetooth / OSC 把连续 flex 参数接入 VRChat。</li>
+              </ul>
+            </article>
+            <article class="landscape-card gap-card">
+              <p class="eyebrow">THE GAP</p>
+              <h3>OpenRing 可补上的一段</h3>
+              <p>社区常见链路是“原版 Ring-Con → 逆向协议 → PC driver / game mods”。OpenRing 要补齐的是另一端：</p>
+              <p class="mono" style="color: var(--ink)">3D printed ring<br>↓<br>strain gauge / Hall<br>↓<br>ESP32 + open protocol<br>↓<br>games &amp; tools</p>
+              <p>最值得复用的是已有的数据模型与软件接口，而不是机械外形；传感结构与协议可以做得更开放。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="architecture">
+        <div class="wrap">
+          <div class="section-head">
+            <div><p class="eyebrow">05 / multimodal architecture</p><h2>不是三种控制器，<br>是一个动作。</h2></div>
+            <div><p>摄像头判断“身体做了什么”，Ring 识别“用了多少力”，IMU 捕捉朝向与加速度。产品层不应把它们分别交给游戏，而应融合为开发者可以直接消费的语义事件。</p></div>
+          </div>
+          <div class="fusion">
+            <article class="fusion-source"><span class="path-id mono">CAMERA / POSE</span><h3>动作质量</h3><ul><li>深蹲深度与躯干倾角</li><li>手臂位置与身体旋转</li><li>平衡、节奏与对称性</li></ul></article>
+            <article class="fusion-source"><span class="path-id mono">RING / FORCE</span><h3>发力质量</h3><ul><li>squeeze / pull force</li><li>力度变化速度</li><li>保持时长与稳定性</li></ul></article>
+            <article class="fusion-source"><span class="path-id mono">IMU / MOTION</span><h3>空间运动</h3><ul><li>环的朝向</li><li>加速度与释放动作</li><li>瞄准与手腕旋转</li></ul></article>
+            <div class="equation">POSE + FORCE + MOTION → SEMANTIC PHYSICAL ACTION</div>
+            <article class="semantic">
+              <span class="path-id mono">OUTPUT EVENT</span>
+              <h3>charged_squat</h3>
+              <p class="mono">depth 0.91<br>force 0.62<br>stability 0.88<br>symmetry 0.93<br>tempo 0.76</p>
+            </article>
+            <article class="semantic" style="grid-column: span 2">
+              <span class="path-id mono">DEVELOPER RULE</span>
+              <h3>把技术复杂度留在平台层</h3>
+              <p>游戏开发者定义“深蹲深度 &gt; 0.8 + 躯干倾角 &lt; 15° + 压力 0.4–0.7 + 保持 &gt; 800 ms”，不必直接处理姿态识别、应变片或 ESP32 数据。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="games">
+        <div class="wrap">
+          <div class="section-head">
+            <div><p class="eyebrow">06 / game concepts</p><h2>让力成为玩法，<br>不是计数器。</h2></div>
+            <div><p>连续输入的价值不只在“更大力”。力度的速度、稳定性、甜区与衰减，都可以变成技能、风险、合作与动态难度。</p></div>
+          </div>
+          <div class="games">
+            <article class="game featured"><span class="num mono">01 / 推荐首个 Demo</span><h3>魔法战斗</h3><p>姿势决定法术，Ring 压力决定蓄能，身体转向与环朝向负责瞄准，真实前推动作完成释放。30 秒内即可解释多模态价值。</p></article>
+            <article class="game"><span class="num mono">02</span><h3>动作 RPG</h3><p>深蹲深度、侧闪和 stance 决定动作是否成立；同时保持目标压力可触发 perfect attack，而不是机械重复固定次数。</p></article>
+            <article class="game"><span class="num mono">03</span><h3>射箭 / 技能</h3><p>拉力模拟 draw strength，摄像头看肩线与手臂，IMU 负责瞄准。长弓、短弓与魔法弓对应不同的力度—时间曲线。</p></article>
+            <article class="game"><span class="num mono">04</span><h3>潜行 / 拆弹 / 解谜</h3><p>稳定保持 32–38% 的力度甜区，或在转体时寻找保险箱反馈。轻与稳比“最大力”更重要。</p></article>
+            <article class="game"><span class="num mono">05</span><h3>双人协作</h3><p>一人控制引擎压力、一人用姿态转向；或两人把归一化力值维持在 ±5% 内，让不同力量水平也能公平合作。</p></article>
+            <article class="game"><span class="num mono">06</span><h3>自适应教练</h3><p>当动作仍标准但输出力与速度下降时，下一关从最大力挑战转为精准控制；根据疲劳与技能调整玩法，而非只发奖励。</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap">
+        <div class="wrap">
+          <div class="section-head">
+            <div><p class="eyebrow">07 / staged MVP</p><h2>四步走到<br>可玩的系统。</h2></div>
+            <div><p>每一阶段只增加一个主要未知量：先有稳定信号，再有开放输入，再加空间动作，最后才融合视觉语义。</p></div>
+          </div>
+          <div class="roadmap">
+            <article class="phase"><span class="meta">M0 / BENCH</span><h3>弧段与信号</h3><p>Hall + magnet + ESP32；压放 5 mm，验证连续性、回零与重复性。</p></article>
+            <article class="phase"><span class="meta">M1 / RING</span><h3>整环与协议</h3><p>输出 force −1…+1、velocity、rep_count 与 hold_time，经 BLE 或网页接入。</p></article>
+            <article class="phase"><span class="meta">M2 / MOTION</span><h3>加入 IMU</h3><p>把朝向、加速度与力组合，完成无需摄像头的蓄力—瞄准—释放 Demo。</p></article>
+            <article class="phase"><span class="meta">M3 / VISION</span><h3>语义动作 Demo</h3><p>摄像头姿态 + Ring + IMU 融合，优先做“魔法战斗”而不是完整 RPG。</p></article>
+          </div>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <footer>
+    <div class="wrap footer-grid">
+      <div>
+        <a class="source-link" href="https://chatgpt.com/share/6aa92012-d8a0-83ec-93ba-cf48a79d478f" target="_blank" rel="noopener noreferrer">查看源讨论：评估健身环复制方案 ↗</a>
+        <p class="disclaimer">本页面是基于公开讨论整理的独立探索，与 Nintendo / 任天堂无隶属、授权或合作关系。Ring-Con、Nintendo 及相关名称属于其各自权利人。</p>
+      </div>
+      <a class="back-top" href="#top" aria-label="回到页首">↑</a>
+    </div>
+  </footer>
+
+  <script>
+    (() => {
+      const slider = document.querySelector('#distance');
+      const distanceOutput = document.querySelector('#distanceValue');
+      const adcOutput = document.querySelector('#adcValue');
+      const normalizedOutput = document.querySelector('#normalizedValue');
+      const stateOutput = document.querySelector('#stateValue');
+      const meterFill = document.querySelector('#meterFill');
+      const gapLine = document.querySelector('#gapLine');
+      const field = document.querySelector('#field');
+      const points = [
+        [6, 3300], [8, 2800], [10, 2500], [15, 2180], [20, 2050]
+      ];
+
+      function interpolate(distance) {
+        for (let i = 0; i < points.length - 1; i += 1) {
+          const [x1, y1] = points[i];
+          const [x2, y2] = points[i + 1];
+          if (distance >= x1 && distance <= x2) {
+            const ratio = (distance - x1) / (x2 - x1);
+            return y1 + (y2 - y1) * ratio;
+          }
+        }
+        return points[points.length - 1][1];
+      }
+
+      function updateDemo() {
+        const distance = Number(slider.value);
+        const adc = Math.round(interpolate(distance));
+        const normalized = Math.max(0, Math.min(1, (adc - 2050) / (3300 - 2050)));
+        let state = '中压';
+        if (normalized < 0.2) state = '接近中性';
+        else if (normalized < 0.45) state = '轻压';
+        else if (normalized > 0.78) state = '重压';
+
+        distanceOutput.value = `${distance.toFixed(1)} mm`;
+        adcOutput.value = String(adc);
+        normalizedOutput.value = normalized.toFixed(2);
+        stateOutput.value = state;
+        meterFill.style.setProperty('--level', `${normalized * 100}%`);
+        gapLine.dataset.gap = `${distance.toFixed(1)} mm`;
+        field.style.setProperty('--field', `${20 + normalized * 52}%`);
+      }
+
+      slider.addEventListener('input', updateDemo);
+      updateDemo();
+    })();
+  </script>
+</body>
+</html>
