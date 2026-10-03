@@ -4,7 +4,7 @@ export type ComponentType = 'resistor' | 'inductor' | 'inductor-mil';
 export const colorHex: Record<BandColor, string> = {
   black: '#202020', brown: '#754321', red: '#c52c30', orange: '#ed7d25', yellow: '#f3d438', green: '#36804b', blue: '#3261ae', violet: '#824899', grey: '#808080', white: '#eeeeee', gold: '#b99742', silver: '#bdbdbd',
 };
-const tolerances: Partial<Record<BandColor, number>> = { brown: 1, red: 2, green: .5, blue: .25, violet: .1, grey: .05, gold: 5, silver: 10 };
+export const bandTolerances: Partial<Record<BandColor, number>> = { brown: 1, red: 2, green: .5, blue: .25, violet: .1, grey: .05, gold: 5, silver: 10 };
 export type BandReading = { value: number; tolerance: number; colors: BandColor[]; reversed: boolean };
 
 function decodeOne(colors: BandColor[], type: ComponentType): Omit<BandReading, 'reversed'> | null {
@@ -12,7 +12,7 @@ function decodeOne(colors: BandColor[], type: ComponentType): Omit<BandReading, 
   if (mil && (colors.length !== 5 || colors[0] !== 'silver')) return null;
   const bands = mil ? colors.slice(1) : colors;
   if (type === 'resistor' ? ![4, 5].includes(bands.length) : bands.length !== 4) return null;
-  const tolerance = tolerances[bands.at(-1)!];
+  const tolerance = bandTolerances[bands.at(-1)!];
   if (tolerance === undefined || (type !== 'resistor' && !['gold', 'silver'].includes(bands.at(-1)!))) return null;
   const digits = bands.slice(0, -2).map(c => bandColors.indexOf(c));
   const multiplier = bandColors.indexOf(bands.at(-2)!);
@@ -53,30 +53,82 @@ function lab(rgb: RGB): RGB {
 }
 const distance = (a: RGB, b: RGB) => Math.hypot(...a.map((v, i) => v - b[i]));
 const references = bandColors.map(color => ({ color, lab: lab([1, 3, 5].map(i => parseInt(colorHex[color].slice(i, i + 2), 16)) as RGB) }));
+function hsv([r, g, b]: RGB) {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
+  let h = delta === 0 ? 0 : max === r ? 60 * ((g - b) / delta % 6) : max === g ? 60 * ((b - r) / delta + 2) : 60 * ((r - g) / delta + 4);
+  if (h < 0) h += 360;
+  return { h, s: delta / Math.max(1, max), v: max / 255 };
+}
+const hueDistance = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
 export function classifyBand(rgb: RGB): BandColor | null {
+  const { h, s, v } = hsv(rgb);
+  // Hue survives dim lighting better than the distance to a bright reference.
+  // Very dark paint is black; colored tolerance bands remain reviewable below.
+  if (v < .28) return 'black';
+  if (s < .14) return v > .85 ? 'white' : v > .65 ? 'silver' : 'grey';
+  if ((h < 15 || h > 325) && s > .2) return 'red';
+  if (h >= 15 && h < 40 && v < .6) return 'brown';
+  if (h >= 30 && h < 68 && v < .87 && s > .3) return 'gold';
+  if (h >= 15 && h < 40) return 'orange';
+  if (h >= 40 && h < 75) return 'yellow';
+  if (h >= 75 && h < 165) return 'green';
+  if (h >= 165 && h < 255) return 'blue';
+  if (h >= 255 && h <= 325) return 'violet';
   const sample = lab(rgb);
   const ranked = references.map(ref => ({ color: ref.color, distance: distance(sample, ref.lab) })).sort((a, b) => a.distance - b.distance);
-  return ranked[0].distance < 28 && ranked[1].distance - ranked[0].distance > 3 ? ranked[0].color : null;
+  return ranked[0].distance < 28 ? ranked[0].color : null;
 }
 
-export type DetectedBand = { color: BandColor; x: number };
-// The input is the narrow horizontal strip shown by the camera guide. The
+export type DetectedBand = { color: BandColor; x: number; uncertain?: boolean };
+// The input is an axis-aligned strip sampled from the located component. The
 // dominant paint is treated as the body; narrow contrasting runs are bands.
 export function detectBandStrip(data: Uint8ClampedArray, width: number, height: number, count: number): DetectedBand[] | null {
   if (width < 80 || height < 1 || data.length !== width * height * 4) return null;
   const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
   const columns: RGB[] = Array.from({ length: width }, (_, x) => [0, 1, 2].map(c => median(Array.from({ length: height }, (_, y) => data[(y * width + x) * 4 + c]))) as RGB);
   const buckets = new Map<string, RGB[]>();
-  columns.forEach(rgb => { const key = rgb.map(v => Math.round(v / 24)).join(','); buckets.set(key, [...(buckets.get(key) || []), rgb]); });
+  columns.forEach(rgb => {
+    const c = hsv(rgb);
+    // Bucket paint by hue, not absolute RGB: curved blue bodies have a broad
+    // brightness gradient even in a single frame.
+    const key = c.s > .2 && c.v > .32 ? `h${Math.round(c.h / 20) % 18}` : 'neutral';
+    if (key !== 'neutral' || c.s < .14 && c.v > .45) buckets.set(key, [...(buckets.get(key) || []), rgb]);
+  });
   const bodyPixels = [...buckets.values()].sort((a, b) => b.length - a.length)[0];
-  if (bodyPixels.length < width * .18) return null;
-  const body = lab([0, 1, 2].map(c => median(bodyPixels.map(rgb => rgb[c]))) as RGB);
-  const colors = columns.map(rgb => distance(lab(rgb), body) > 16 ? classifyBand(rgb) : null);
-  // A three-column vote removes isolated sensor noise without joining bands.
-  const filtered = colors.map((color, x) => x > 0 && x < width - 1 && colors[x - 1] === colors[x + 1] ? colors[x - 1] : color);
-  const runs: { color: BandColor | null; start: number; end: number }[] = [];
-  filtered.forEach((color, x) => { const last = runs.at(-1); if (last?.color === color) last.end = x + 1; else runs.push({ color, start: x, end: x + 1 }); });
-  const found = runs.filter(run => run.color && run.end - run.start >= Math.max(3, width * .015));
-  if (found.length !== count || found.some(run => run.end - run.start > width * .18 || run.start < width * .02 || run.end > width * .98)) return null;
-  return found.map(run => ({ color: run.color!, x: (run.start + run.end) / (2 * width) }));
+  if (!bodyPixels || bodyPixels.length < width * .18) return null;
+  const bodyRGB = [0, 1, 2].map(c => median(bodyPixels.map(rgb => rgb[c]))) as RGB;
+  const body = lab(bodyRGB), bodyHSV = hsv(bodyRGB);
+  const bodyLike = columns.map(rgb => {
+    const c = hsv(rgb);
+    return c.v > bodyHSV.v * .65 && Math.abs(c.s - bodyHSV.s) < .22 && (bodyHSV.s < .14 || hueDistance(c.h, bodyHSV.h) < 22);
+  });
+  const first = bodyLike.indexOf(true), last = bodyLike.lastIndexOf(true);
+  if (first < 0 || last - first < width * .45) return null;
+  const bandMask = columns.map((rgb, x) => {
+    if (x < first || x > last) return false;
+    const c = hsv(rgb);
+    const cue = c.v < bodyHSV.v * .7 || Math.abs(c.s - bodyHSV.s) > .22 || bodyHSV.s > .14 && hueDistance(c.h, bodyHSV.h) > 24;
+    return cue && distance(lab(rgb), body) > 13;
+  });
+  // Repair single-column holes caused by glare without splitting one band into
+  // several guessed colors. Classify only after the complete band is segmented.
+  const filtered = bandMask.map((value, x) => x > 0 && x < width - 1 && bandMask[x - 1] === bandMask[x + 1] ? bandMask[x - 1] : value);
+  const runs: { start: number; end: number }[] = [];
+  for (let x = first; x <= last; x++) if (filtered[x]) {
+    const start = x;
+    while (x <= last && filtered[x]) x++;
+    if (x - start >= Math.max(3, width * .015)) runs.push({ start, end: x });
+  }
+  if (runs.length !== count || runs.some(run => run.end - run.start > width * .18)) return null;
+  const found: DetectedBand[] = [];
+  for (const run of runs) {
+    const inset = Math.floor((run.end - run.start) * .25);
+    const core = columns.slice(run.start + inset, run.end - inset);
+    const rgb = [0, 1, 2].map(c => median(core.map(v => v[c]))) as RGB;
+    const color = classifyBand(rgb);
+    if (!color) return null;
+    const sampleHSV = hsv(rgb);
+    found.push({ color, x: (run.start + run.end) / (2 * width), uncertain: color !== 'black' && sampleHSV.v < .42 });
+  }
+  return found;
 }

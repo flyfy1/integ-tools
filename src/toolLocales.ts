@@ -744,7 +744,7 @@ export function localizedAbout(tool: Tool, locale: Locale) {
   return localizedDescription(tool, locale);
 }
 export function localizedHow(tool: Tool, locale: Locale) {
-  if (tool.kind === 'component-scanner' && locale === 'zh') return '允许后置摄像头访问，将单个元件横放，让主体填满取景框，全部色环清晰可见。在均匀光线下等待读数，暂停后核对或修正颜色。';
+  if (tool.kind === 'component-scanner' && locale === 'zh') return '允许后置摄像头访问，将单个元件大致横放在画面中部附近，无需占满框。定位器会跟随主体并局部放大，请保持色环对焦清晰。在均匀光线下等待读数，暂停后核对或修正颜色。';
   if (locale === "en") return tool.how;
   return locale === "zh"
     ? "输入参数并立即查看结果；数据不会离开此设备。"

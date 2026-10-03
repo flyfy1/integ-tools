@@ -58,6 +58,10 @@ test('all localized routes mount with the already-loaded comments SDK', async ()
           const run = document.querySelector('.actions .primary');
           if (run) {
             await act(async () => run.click());
+            // WebCrypto may complete after the click handler's first act flush.
+            for (let attempt = 0; !document.querySelector('textarea[readonly]').value && attempt < 40; attempt++) {
+              await act(async () => { await new Promise(resolve => setTimeout(resolve, 25)); });
+            }
             const output = document.querySelector('textarea[readonly]').value;
             if (!output || /Error:|NaN|undefined/.test(output)) failures.push(`${tool.slug}: ${output}`);
           } else {
