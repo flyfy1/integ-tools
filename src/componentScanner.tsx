@@ -1,21 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Locale } from './i18n';
-import { bandColors, colorHex, assessBandDirection, detectBandStrip, formatComponentValue, type BandColor, type BandReading, type ComponentType, type DetectedBand } from './componentBands';
+import { bandColors, colorHex, assessBandDirection, formatComponentValue, type BandColor, type BandReading, type ComponentType, type DetectedBand } from './componentBands';
 import './componentScanner.css';
 import { ComponentDebug } from './componentDebug';
 import { ComponentGuide } from './componentGuide';
-import { locateComponent, sampleComponentStrip, type ComponentTarget } from './componentLocator';
+import { BandConsensus, componentRegion, readComponentBands } from './componentCapture';
+import { locateComponent, type ComponentTarget } from './componentLocator';
 
 const text = {
   en: {
     type: 'Component type', resistor: 'Resistor', inductor: 'Inductor · EIA', mil: 'Inductor · MIL (wide silver first band)', count: 'Number of bands',
     start: 'Start rear camera', stop: 'Pause & correct', starting: 'Opening camera…', guide: 'Hold one component roughly horizontal near the middle. It does not need to fill the guide: the detector follows its body and magnifies it. Keep the bands in focus under diffuse light.',
     idle: 'Camera is off. Start scanning or enter the colors below.', seeking: 'Looking for clear, consistent bands…', candidate: 'Camera candidate · verify colors', paused: 'Paused camera candidate · verify colors', manual: 'Manually entered colors',
-    empty: 'No value yet', invalid: 'This color sequence is not a supported code. Check colors, band count and component type.', ambiguous: 'Both reading directions are valid. Check which end has the tolerance band; both candidates are shown.',
+    unresolved: 'Component located, but its bands are not resolved. Inspect the magnified photo, correct colors or report this frame.', empty: 'No value yet', invalid: 'This color sequence is not a supported code. Check colors, band count and component type.', ambiguous: 'Both reading directions are valid. Check which end has the tolerance band; both candidates are shown.',
     band: 'Band', unknown: 'Choose color', reverse: 'Reverse colors', correction: 'Detected colors, left to right. Pause before correcting.',
     limit: 'Reads nominal values from color bands, not an electrical measurement. Component type must be selected: appearance alone cannot reliably distinguish resistors and inductors. Supports 4/5-band resistors, 4-band EIA inductors and 5-band MIL inductors. SMD text codes, 6-band resistors and unmarked parts are not scanned.',
     verify: 'Experimental camera reader. Shadows, body paint and metallic bands can change the reading. Check the displayed colors and confirm critical values with a meter.',
-    privacy: 'Scanning stays on this device. Debug lets you explicitly upload a selected image.', permission: 'Camera permission was denied. Allow camera access in your browser settings, then retry. Manual color entry also works.',
+    privacy: 'Scanning stays on this device. Debug previews the current photo for an explicit report submission.', permission: 'Camera permission was denied. Allow camera access in your browser settings, then retry. Manual color entry also works.',
     unavailable: 'Camera unavailable. Use HTTPS and a browser with camera access, or enter colors manually.', busy: 'The camera could not start. Close other camera apps and retry.', ended: 'Camera stopped. Restart to scan another component.', direction: 'Read right to left', forward: 'Read left to right',
     colors: ['Black', 'Brown', 'Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Violet', 'Grey', 'White', 'Gold', 'Silver'],
     located: 'Component candidate located · waiting for clear, consistent bands', small: 'Component candidate located · move a little closer or improve focus to resolve its bands', placement: 'Place one component here · the detection box follows it', zoom: 'Located component · local magnified view', autoCount: 'Camera scanning detects 4 or 5 resistor bands automatically.', uncertain: 'Some bands are dark or close to the body color. The nominal value is a candidate; verify the marked colors in the magnified view.', checkColor: 'Verify color', checkTolerance: 'tolerance unconfirmed', preferred: 'Preferred candidate', alternatives: 'Other reading direction · verify if needed', toleranceBand: 'Tolerance band candidate', metallic: 'The gold/silver end band cannot be a leading digit: read from the opposite end.', code: 'Only this direction matches the selected color code. Verify the colors.', spacing: 'The {end} end band has a larger gap. Treating it as the tolerance band favors this direction; spacing is a clue, not proof.', left: 'left', right: 'right', conflict: 'Spacing and the selected color code suggest different directions. Check the colors or confirm with a meter.',
@@ -24,11 +25,11 @@ const text = {
     type: '元件类型', resistor: '电阻', inductor: '电感 · EIA', mil: '电感 · MIL（首环为宽银环）', count: '色环数量',
     start: '打开后置摄像头', stop: '暂停并修正', starting: '正在打开摄像头…', guide: '将单个元件大致横放在画面中部附近，无需占满框。定位器会跟随主体并局部放大；请保持色环对焦清晰、光线均匀。',
     idle: '摄像头已关闭。可以开始扫描，也可以在下方手动选择颜色。', seeking: '正在寻找清晰且连续一致的色环…', candidate: '摄像头候选结果 · 请核对颜色', paused: '已暂停的摄像头候选结果 · 请核对颜色', manual: '手动输入的色环',
-    empty: '还没有读数', invalid: '这个颜色顺序不符合已支持的编码，请检查颜色、色环数量和元件类型。', ambiguous: '两个读向都符合编码，请核对容差环在哪一端。下方显示两种候选结果。',
+    unresolved: '已定位元件，但还没分清全部色环。请核对局部放大图、修正颜色，或直接报告当前照片。', empty: '还没有读数', invalid: '这个颜色顺序不符合已支持的编码，请检查颜色、色环数量和元件类型。', ambiguous: '两个读向都符合编码，请核对容差环在哪一端。下方显示两种候选结果。',
     band: '色环', unknown: '选择颜色', reverse: '反转色环顺序', correction: '下方按画面从左到右显示色环，暂停后可以修正。',
     limit: '读取色环标示的标称值，不是电气测量。请先选择元件类型，单靠外观无法可靠区分电阻和电感。支持 4/5 环电阻、4 环 EIA 电感和 5 环 MIL 电感，暂不扫描贴片文字编码、6 环电阻或无标记元件。',
     verify: '实验版摄像头识别。阴影、主体底色和金属色环可能造成误读，请核对显示的颜色，关键数值用仪表确认。',
-    privacy: '扫描画面只在本机处理。Debug 可由你主动上传选定图片。', permission: '摄像头权限被拒绝。请在浏览器设置中允许访问后重试，也可以手动输入色环。',
+    privacy: '扫描画面只在本机处理。Debug 会预览当前照片，由你主动提交报告。', permission: '摄像头权限被拒绝。请在浏览器设置中允许访问后重试，也可以手动输入色环。',
     unavailable: '摄像头不可用，请使用 HTTPS 和支持摄像头的浏览器，也可以手动输入色环。', busy: '无法启动摄像头，请关闭其他使用摄像头的应用后重试。', ended: '摄像头已停止，重新打开即可扫描下一个元件。', direction: '从右向左读', forward: '从左向右读',
     colors: ['黑', '棕', '红', '橙', '黄', '绿', '蓝', '紫', '灰', '白', '金', '银'],
     located: '已定位疑似元件 · 等待清晰且连续一致的色环', small: '已定位疑似元件 · 请稍微靠近或改善对焦，让色环可分辨', placement: '单个元件放在此区域附近 · 定位框会跟随', zoom: '已定位元件 · 本机局部放大', autoCount: '扫描时自动判断电阻的 4 / 5 条色环。', uncertain: '部分色环较暗或接近底色。标称值是候选结果，请在放大图中核对标记的颜色。', checkColor: '颜色待核对', checkTolerance: '容差待核对', preferred: '优先候选', alternatives: '另一读向候选 · 需要时展开核对', toleranceBand: '容差环候选', metallic: '末端金 / 银环不能作为开头的数字环，优先从另一端开始读。', code: '当前颜色只有这个读向符合编码，请核对色环颜色。', spacing: '{end}端色环与其他环间隔更大，优先将其作为容差环按此方向读；间距是线索，并非绝对保证。', left: '左', right: '右', conflict: '色环间距与当前颜色编码提示的读向冲突，请核对颜色或用仪表确认。',
@@ -39,6 +40,8 @@ export function ComponentScanner({ locale }: { locale: Locale }) {
   const t = text[locale === 'zh' ? 'zh' : 'en'];
   const video = useRef<HTMLVideoElement>(null);
   const magnifier = useRef<HTMLCanvasElement>(null);
+  const frozenFrame = useRef<{ canvas: HTMLCanvasElement; region: ReturnType<typeof componentRegion> | null } | null>(null);
+  const readCurrent = useRef<((paused: boolean) => void) | null>(null);
   const [type, setType] = useState<ComponentType>('resistor');
   const [count, setCount] = useState(4);
   const [enabled, setEnabled] = useState(false);
@@ -60,15 +63,17 @@ export function ComponentScanner({ locale }: { locale: Locale }) {
     let cancelled = false;
     let stream: MediaStream | undefined;
     let timer: ReturnType<typeof setInterval> | undefined;
-    let lastKey = '', streak = 0;
+    const consensus = new BandConsensus();
     let previous: ComponentTarget | null = null;
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d', { willReadFrequently: true });
+    const source = document.createElement('canvas');
+    const sourceContext = source.getContext('2d', { willReadFrequently: true });
     const pauseOnHide = () => { if (document.hidden) { setEnabled(false); setStatus('ended'); } };
     document.addEventListener('visibilitychange', pauseOnHide);
     const open = async () => {
       try {
-        if (!navigator.mediaDevices?.getUserMedia || !context) { setStatus('unavailable'); setEnabled(false); return; }
+        if (!navigator.mediaDevices?.getUserMedia || !context || !sourceContext) { setStatus('unavailable'); setEnabled(false); return; }
         stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
         if (cancelled) { stream.getTracks().forEach(track => track.stop()); return; }
         stream.getVideoTracks().forEach(track => { track.onended = () => { setEnabled(false); setStatus('ended'); }; });
@@ -78,40 +83,39 @@ export function ComponentScanner({ locale }: { locale: Locale }) {
         await player.play();
         if (cancelled) return;
         setStatus('seeking');
-        timer = setInterval(() => {
+        const scan = (paused: boolean) => {
           if (player.readyState < 2 || !player.videoWidth) return;
-          canvas.width = Math.min(640, player.videoWidth);
-          canvas.height = Math.max(1, Math.round(player.videoHeight * canvas.width / player.videoWidth));
-          context.drawImage(player, 0, 0, canvas.width, canvas.height);
+          source.width = player.videoWidth; source.height = player.videoHeight;
+          sourceContext.drawImage(player, 0, 0, source.width, source.height);
+          canvas.width = Math.min(640, source.width);
+          canvas.height = Math.max(1, Math.round(source.height * canvas.width / source.width));
+          context.drawImage(source, 0, 0, canvas.width, canvas.height);
           const frame = context.getImageData(0, 0, canvas.width, canvas.height);
           const located = locateComponent(frame.data, canvas.width, canvas.height, previous);
+          frozenFrame.current = { canvas: source, region: null };
           if (!located) {
-            previous = null; lastKey = ''; streak = 0;
-            setTarget(null); setBands([]); setStatus('seeking'); return;
+            previous = null; consensus.reset();
+            setTarget(null); setBands([]); setStatus(paused ? 'idle' : 'seeking'); return;
           }
-          if (previous && Math.hypot(located.cx - previous.cx, located.cy - previous.cy) > Math.max(previous.length, located.length)) { lastKey = ''; streak = 0; }
+          if (previous && Math.hypot(located.cx - previous.cx, located.cy - previous.cy) > Math.max(previous.length, located.length)) consensus.reset();
           previous = located; setTarget(located);
+          const region = componentRegion(located, canvas.width, canvas.height, source.width, source.height);
+          frozenFrame.current.region = region;
           const zoom = magnifier.current;
           const zoomContext = zoom?.getContext('2d');
           if (zoom && zoomContext) {
-            const b = located.box, padX = b.width * .16, padY = b.height * .55;
-            const x = Math.max(0, b.x - padX), y = Math.max(0, b.y - padY);
-            const w = Math.min(1 - x, b.width + padX * 2), h = Math.min(1 - y, b.height + padY * 2);
-            zoom.width = 560; zoom.height = Math.max(80, Math.min(280, Math.round(560 * h * player.videoHeight / (w * player.videoWidth))));
-            zoomContext.drawImage(player, x * player.videoWidth, y * player.videoHeight, w * player.videoWidth, h * player.videoHeight, 0, 0, zoom.width, zoom.height);
+            zoom.width = 560; zoom.height = Math.max(80, Math.min(280, Math.round(560 * region.height / region.width)));
+            zoomContext.drawImage(source, region.x, region.y, region.width, region.height, 0, 0, zoom.width, zoom.height);
           }
-          // Localization is separate from reading. Upscaling cannot recover
-          // colors from a component whose bands have too few source pixels.
-          const strip = located.length >= 48 ? sampleComponentStrip(frame.data, canvas.width, canvas.height, located) : null;
-          const found = strip ? (type === 'resistor' ? detectBandStrip(strip, 420, 9, 4) ?? detectBandStrip(strip, 420, 9, 5) : detectBandStrip(strip, 420, 9, type === 'inductor-mil' ? 5 : 4)) : null;
-          const foundDirection = found ? assessBandDirection(found.map(b => b.color), type, found) : null;
-          const key = found && foundDirection ? `${found.map(b => `${b.color}:${Boolean(b.uncertain)}`).join(',')}|${foundDirection.reason}:${foundDirection.readings[0]?.reversed}` : '';
-          streak = key && key === lastKey ? streak + 1 : 1;
-          lastKey = key;
-          if (!found || streak < 3) { setBands([]); setStatus(located.length < 48 ? 'small' : 'located'); return; }
-          setCount(found.length); setBands(found);
-          setStatus('candidate');
-        }, 450);
+          const pixels = sourceContext.getImageData(region.x, region.y, region.width, region.height);
+          const found = readComponentBands(pixels.data, region.width, region.height, region.target, type);
+          const accepted = paused ? found : consensus.add(found);
+          if (!accepted) { setBands([]); setStatus(paused ? 'unresolved' : region.target.length < 48 ? 'small' : 'located'); return; }
+          setCount(accepted.length); setBands(accepted); setManual(false);
+          setStatus(paused ? 'paused' : 'candidate');
+        };
+        readCurrent.current = scan;
+        timer = setInterval(() => scan(false), 450);
       } catch (error) {
         if (cancelled) return;
         stream?.getTracks().forEach(track => track.stop());
@@ -124,6 +128,7 @@ export function ComponentScanner({ locale }: { locale: Locale }) {
     void open();
     return () => {
       cancelled = true;
+      readCurrent.current = null;
       clearInterval(timer);
       document.removeEventListener('visibilitychange', pauseOnHide);
       stream?.getTracks().forEach(track => { track.onended = null; track.stop(); });
@@ -131,7 +136,27 @@ export function ComponentScanner({ locale }: { locale: Locale }) {
     };
   }, [enabled, type]);
 
+  const pause = () => {
+    if (enabled) {
+      if (readCurrent.current) readCurrent.current(true);
+      else setStatus('idle');
+      setEnabled(false);
+    }
+  };
+  const reportPhoto = () => {
+    pause();
+    const frame = frozenFrame.current;
+    if (!frame) return Promise.resolve(null);
+    const photo = document.createElement('canvas');
+    const region = frame.region ?? { x: 0, y: 0, width: frame.canvas.width, height: frame.canvas.height };
+    photo.width = region.width; photo.height = region.height;
+    const context = photo.getContext('2d');
+    if (!context) return Promise.resolve(null);
+    context.drawImage(frame.canvas, region.x, region.y, region.width, region.height, 0, 0, photo.width, photo.height);
+    return new Promise<Blob | null>(resolve => photo.toBlob(resolve, 'image/jpeg', .95));
+  };
   const reset = (nextType: ComponentType, nextCount: number) => {
+    frozenFrame.current = null;
     setType(nextType); setCount(nextCount); setBands([]); setTarget(null); setManualBands(Array(nextCount).fill('')); setManual(false); setStatus('idle');
   };
   const edit = (index: number, color: string) => {
@@ -157,8 +182,8 @@ export function ComponentScanner({ locale }: { locale: Locale }) {
     </div>
     <div className="actions">
       <button className="primary" onClick={() => {
-        if (enabled) { setEnabled(false); setStatus(bands.length ? 'paused' : 'idle'); }
-        else { setBands([]); setTarget(null); setManual(false); setStatus('starting'); setEnabled(true); }
+        if (enabled) pause();
+        else { frozenFrame.current = null; setBands([]); setTarget(null); setManual(false); setStatus('starting'); setEnabled(true); }
       }}>{enabled ? t.stop : t.start}</button>
     </div>
     <p role="status">{t[status]}</p>
@@ -173,9 +198,9 @@ export function ComponentScanner({ locale }: { locale: Locale }) {
     </label>)}</div>
     <button disabled={enabled || !colors.some(Boolean)} onClick={() => { setManualBands([...colors].reverse()); setBands([]); setManual(true); setStatus('manual'); }}>{t.reverse}</button>
     <p className="note">{t.limit}</p>
-    <ComponentDebug locale={locale} context={{ componentType: type, bandCount: count, colors, readings: readings.map(r => ({ value: r.value, tolerance: r.tolerance })), scanStatus: status, direction: { reason: assessment.reason, preferred: assessment.preferred, reversed: assessment.preferred ? readings[0].reversed : null } }} onOpen={() => { setEnabled(false); if (enabled) setStatus(bands.length ? 'paused' : 'idle'); }}/>
+    <ComponentDebug locale={locale} context={{ componentType: type, bandCount: count, colors, readings: readings.map(r => ({ value: r.value, tolerance: r.tolerance })), scanStatus: status, direction: { reason: assessment.reason, preferred: assessment.preferred, reversed: assessment.preferred ? readings[0].reversed : null } }} onOpen={reportPhoto}/>
     <div className="scanner-sources"><a href="https://www.vishay.com/docs/49411/resistor_color_code_calculator.pdf" target="_blank" rel="noreferrer">Vishay · resistor codes</a><a href="https://www.bourns.com/docs/technical-documents/technical-library/inductive-components/publications/ColorCodeMarkings.pdf" target="_blank" rel="noreferrer">Bourns · inductor codes</a></div>
   </section><ComponentGuide locale={locale} onExample={(nextType, nextColors) => {
-    setEnabled(false); setType(nextType); setCount(nextColors.length); setBands([]); setTarget(null); setManualBands([...nextColors]); setManual(true); setStatus('manual');
+    frozenFrame.current = null; setEnabled(false); setType(nextType); setCount(nextColors.length); setBands([]); setTarget(null); setManualBands([...nextColors]); setManual(true); setStatus('manual');
   }}/></>;
 }

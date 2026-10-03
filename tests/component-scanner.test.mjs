@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 import { JSDOM } from 'jsdom';
 import { act, createElement } from 'react';
 import { bandColors, colorHex, decodeBands, assessBandDirection, detectBandStrip, formatComponentValue } from '../src/componentBands.ts';
+import { BandConsensus, componentRegion, readComponentBands } from '../src/componentCapture.ts';
 import { locateComponent, sampleComponentStrip } from '../src/componentLocator.ts';
 
 function cameraFrame(colors, { width = 640, height = 360, cx = width / 2, cy = height / 2, length = 120, thickness = 36, angle = 0, body = '#d7bd96', positions } = {}) {
@@ -135,7 +136,18 @@ test('camera loop stabilizes, clears old values, pauses, handles denial and rele
   const { createRoot } = await import('react-dom/client');
   const { ComponentScanner } = await import('../work/scanner-tests/componentScanner.js');
   let frame = cameraFrame(['brown', 'black', 'red', 'gold']);
-  dom.window.HTMLCanvasElement.prototype.getContext = () => ({ drawImage() {}, getImageData: () => frame });
+  dom.window.HTMLCanvasElement.prototype.getContext = function () {
+    const canvas = this;
+    return { drawImage() {}, getImageData(x, y, width, height) {
+      const data = new Uint8ClampedArray(width * height * 4);
+      for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) {
+        const px = Math.min(frame.width - 1, Math.floor((x + dx) * frame.width / canvas.width));
+        const py = Math.min(frame.height - 1, Math.floor((y + dy) * frame.height / canvas.height));
+        data.set(frame.data.subarray((py * frame.width + px) * 4, (py * frame.width + px) * 4 + 4), (dy * width + dx) * 4);
+      }
+      return { data, width, height };
+    } };
+  };
   dom.window.HTMLMediaElement.prototype.play = async () => {};
   for (const [key, value] of [['videoWidth', 1000], ['videoHeight', 562], ['readyState', 4]]) Object.defineProperty(dom.window.HTMLVideoElement.prototype, key, { get: () => value });
   let stops = 0, opens = 0;
@@ -151,7 +163,11 @@ test('camera loop stabilizes, clears old values, pauses, handles denial and rele
     await act(async () => start().click());
     await wait(550);
     assert.equal(document.querySelector('.scanner-reading strong'), null);
-    await wait(950);
+    await act(async () => start().click());
+    assert.match(document.querySelector('.scanner-reading').textContent, /1 kΩ/, 'pause reads the first localized frame before temporal stability');
+    assert.equal(stops, 1);
+    await act(async () => start().click());
+    await wait(1500);
     assert.match(document.querySelector('.scanner-reading').textContent, /1 kΩ/);
     frame = cameraFrame([]);
     await wait(500);
@@ -163,7 +179,7 @@ test('camera loop stabilizes, clears old values, pauses, handles denial and rele
     await wait(1500);
     assert.equal(document.querySelectorAll('.scanner-bands select').length, 5, 'live camera detects band count');
     assert.match(document.querySelector('.scanner-reading').textContent, /220 Ω/);
-    assert.equal(opens, 1, 'automatic count must not reopen the camera');
+    assert.equal(opens, 2, 'automatic count must not reopen the camera');
     assert.match(document.querySelector('.scanner-direction-note').textContent, /右端色环/);
     assert.match(document.querySelector('.scanner-preferred').textContent, /优先候选/);
     assert.match(document.querySelector('.scanner-reading > .scanner-candidate').textContent, /220 Ω/);
@@ -180,7 +196,7 @@ test('camera loop stabilizes, clears old values, pauses, handles denial and rele
     await wait(1500);
     assert.equal(document.querySelectorAll('.scanner-bands select').length, 4);
     await act(async () => start().click());
-    assert.equal(stops, 1);
+    assert.equal(stops, 2);
     assert.equal(document.querySelector('video').srcObject, null);
     assert.match(document.querySelector('[role="status"]').textContent, /已暂停/);
     const select = document.querySelector('.scanner-bands select');
@@ -205,6 +221,30 @@ test('camera loop stabilizes, clears old values, pauses, handles denial and rele
     await act(async () => start().click());
     await act(async () => root.unmount());
     await act(async () => resolveStream(stream));
-    assert.equal(stops, 2, 'late permission result must stop after unmount');
+    assert.equal(stops, 3, 'late permission result must stop after unmount');
   } finally { dom.window.close(); }
+});
+
+ test('native source bands survive a small localization frame and warning jitter', () => {
+  const colors = ['brown', 'black', 'red', 'gold'];
+  const frame = cameraFrame(colors, { width: 1920, height: 1080, length: 108, thickness: 30 });
+  const target = { cx: 320, cy: 180, length: 36, thickness: 10, angle: 0, box: { x: 302 / 640, y: 175 / 360, width: 36 / 640, height: 10 / 360 } };
+  assert.equal(readComponentBands(frame.data, 1920, 1080, target, 'resistor'), null);
+  const region = componentRegion(target, 640, 360, 1920, 1080);
+  const scaled = { ...region.target, cx: region.target.cx + region.x, cy: region.target.cy + region.y };
+  const bands = readComponentBands(frame.data, 1920, 1080, scaled, 'resistor');
+  assert.deepEqual(bands?.map(b => b.color), colors);
+  const consensus = new BandConsensus();
+  assert.equal(consensus.add(bands), null);
+  assert.equal(consensus.add(bands.map(b => ({ ...b, uncertain: true }))), null);
+  assert.equal(consensus.add(null), null);
+  assert.deepEqual(consensus.add(bands)?.map(b => b.color), colors);
+  consensus.reset(); assert.equal(consensus.add(bands), null);
+});
+ test('off-center strips recover bands when the center is obscured by glare', () => {
+  const frame = cameraFrame(['brown', 'black', 'red', 'gold']);
+  for (let y = 176; y <= 184; y++) for (let x = 260; x < 380; x++) frame.data.set([245, 245, 245, 255], (y * frame.width + x) * 4);
+  const target = { cx: 320, cy: 180, length: 120, thickness: 36, angle: 0, box: { x: 260 / 640, y: 162 / 360, width: 120 / 640, height: 36 / 360 } };
+  assert.equal(detectBandStrip(sampleComponentStrip(frame.data, frame.width, frame.height, target), 420, 9, 4), null);
+  assert.deepEqual(readComponentBands(frame.data, frame.width, frame.height, target, 'resistor')?.map(b => b.color), ['brown', 'black', 'red', 'gold']);
 });

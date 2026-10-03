@@ -43,7 +43,8 @@ band favors that end as tolerance. The preferred candidate explains its evidence
 and keeps another valid direction in an expandable section. Equal/uncertain gaps
 retain both candidates; conflicting spacing and colors prompt verification.
 Manual colors alone provide no spacing evidence. Dim tolerance colors stay unconfirmed. Camera tracks stop on pause, navigation, or
-when the page becomes hidden; frames are never uploaded or saved.
+when the page becomes hidden. Frames stay in memory on this device; only
+explicitly submitted Debug previews are uploaded.
 
 This experimental reader supports 4/5-band resistors, 4-band EIA inductors and
 5-band MIL inductors (with a wide silver identifier). It reads marked nominal
@@ -55,7 +56,7 @@ color does not produce a definite percentage in the camera result. Code tables f
 references on the tool page. Automated camera tests use controlled pixels and
 mock media streams; real phone optics still need physical-component validation.
 
-The optional **Debug / report a recognition problem** flow previews a selected
+The optional **Debug / report a recognition problem** flow automatically previews the current scan
 photo and submits it with explicit consent to shared Integ Feedback. It imports
 the service-owned SDK from `https://discuss.integ.life/v1/feedback/client.js`.
 Compression, validation, private storage, retention, receipts and operator export
@@ -68,3 +69,11 @@ below the reader explains resistance/inductance units, nominal values and tolera
 reading direction, supported EIA/MIL layouts, a shared color table, and instrument
 measurement. Five illustrated examples can be loaded into the manual reader.
 Chinese and English guidance includes manufacturer and instrument references.
+
+Localization runs on a reduced frame, while color sampling uses the source
+resolution component region and checks nearby strips when glare obscures the
+center. Live colors need three matching observations within five frames;
+brightness warnings do not reset the vote. Pause re-reads the frozen frame
+immediately. Debug uses that frame (component crop when located) without asking
+for another file, with up to three optional extra photos. Changing previews
+clears consent, and a successful receipt must confirm every attachment.

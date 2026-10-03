@@ -79,12 +79,12 @@ export function locateComponent(data: Uint8ClampedArray, width: number, height: 
   return best;
 }
 
-export function sampleComponentStrip(data: Uint8ClampedArray, width: number, height: number, target: ComponentTarget, outWidth = 420, outHeight = 9) {
+export function sampleComponentStrip(data: Uint8ClampedArray, width: number, height: number, target: ComponentTarget, outWidth = 420, outHeight = 9, verticalOffset = 0) {
   const result = new Uint8ClampedArray(outWidth * outHeight * 4);
   const cos = Math.cos(target.angle), sin = Math.sin(target.angle);
   for (let y = 0; y < outHeight; y++) for (let x = 0; x < outWidth; x++) {
     const u = ((x + .5) / outWidth - .5) * target.length;
-    const v = ((y + .5) / outHeight - .5) * target.thickness * .28;
+    const v = (((y + .5) / outHeight - .5) * .28 + verticalOffset) * target.thickness;
     const sx = Math.max(0, Math.min(width - 1, Math.round(target.cx + u * cos - v * sin)));
     const sy = Math.max(0, Math.min(height - 1, Math.round(target.cy + u * sin + v * cos)));
     const source = (sy * width + sx) * 4, dest = (y * outWidth + x) * 4;
