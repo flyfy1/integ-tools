@@ -38,6 +38,52 @@ export function decodeBands(colors: BandColor[], type: ComponentType): BandReadi
   return readings;
 }
 
+export type DirectionAssessment = {
+  readings: BandReading[];
+  preferred: boolean;
+  reason: 'invalid' | 'metallic' | 'code' | 'spacing' | 'ambiguous' | 'conflict';
+};
+
+// Compare clear gaps between band edges, rather than assuming a wide band is
+// separated. Require a distinct end gap; symmetric or noisy spacing is neutral.
+function spacedToleranceEnd(geometry: Pick<DetectedBand, 'x' | 'width'>[], count: number): boolean | null {
+  if (geometry.length !== count || count < 4) return null;
+  const useWidths = geometry.every(b => b.width !== undefined);
+  if (geometry.some((b, i) => !Number.isFinite(b.x) || b.x < 0 || b.x > 1 || i > 0 && b.x <= geometry[i - 1].x || useWidths && (!Number.isFinite(b.width) || b.width! <= 0 || b.x - b.width! / 2 < 0 || b.x + b.width! / 2 > 1))) return null;
+  const gaps = geometry.slice(1).map((b, i) => b.x - geometry[i].x - (useWidths ? (b.width! + geometry[i].width!) / 2 : 0));
+  if (gaps.some(g => g <= 0)) return null;
+  const left = gaps[0], right = gaps.at(-1)!;
+  const distinct = (gap: number, others: number[], opposite: number) => {
+    const sorted = [...others].sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+    return gap >= median * 1.35 && gap >= opposite * 1.25 && gap - opposite >= .025 && gap >= Math.max(...others);
+  };
+  if (distinct(right, gaps.slice(0, -1), left)) return false;
+  if (distinct(left, gaps.slice(1), right)) return true;
+  return null;
+}
+
+export function assessBandDirection(colors: BandColor[], type: ComponentType, geometry: Pick<DetectedBand, 'x' | 'width'>[] = []): DirectionAssessment {
+  const forward = decodeOne(colors, type), backward = decodeOne([...colors].reverse(), type);
+  const readings: BandReading[] = [];
+  if (forward) readings.push({ ...forward, reversed: false });
+  if (backward) readings.push({ ...backward, reversed: true });
+  if (!readings.length) return { readings, preferred: false, reason: 'invalid' };
+  // These spacing conventions apply to ordinary resistors, not MIL identifiers.
+  const spacedEnd = type === 'resistor' ? spacedToleranceEnd(geometry, colors.length) : null;
+  if (spacedEnd !== null && !readings.some(r => r.reversed === spacedEnd)) return { readings, preferred: false, reason: 'conflict' };
+  if (readings.length === 1) {
+    const toleranceIndex = readings[0].reversed ? 0 : colors.length - 1;
+    return { readings, preferred: true, reason: type === 'resistor' && ['gold', 'silver'].includes(colors[toleranceIndex]) ? 'metallic' : 'code' };
+  }
+  if (spacedEnd !== null) {
+    readings.sort((a, b) => Number(b.reversed === spacedEnd) - Number(a.reversed === spacedEnd));
+    return { readings, preferred: true, reason: 'spacing' };
+  }
+  return { readings, preferred: false, reason: 'ambiguous' };
+}
+
 export function formatComponentValue(value: number, type: ComponentType) {
   const units = type === 'resistor' ? [[1e9, 'GΩ'], [1e6, 'MΩ'], [1e3, 'kΩ'], [1, 'Ω']] as const : [[1e6, 'H'], [1e3, 'mH'], [1, 'µH']] as const;
   const [scale, unit] = units.find(([scale]) => value >= scale) || units.at(-1)!;
@@ -79,7 +125,7 @@ export function classifyBand(rgb: RGB): BandColor | null {
   return ranked[0].distance < 28 ? ranked[0].color : null;
 }
 
-export type DetectedBand = { color: BandColor; x: number; uncertain?: boolean };
+export type DetectedBand = { color: BandColor; x: number; width?: number; uncertain?: boolean };
 // The input is an axis-aligned strip sampled from the located component. The
 // dominant paint is treated as the body; narrow contrasting runs are bands.
 export function detectBandStrip(data: Uint8ClampedArray, width: number, height: number, count: number): DetectedBand[] | null {
@@ -128,7 +174,7 @@ export function detectBandStrip(data: Uint8ClampedArray, width: number, height: 
     const color = classifyBand(rgb);
     if (!color) return null;
     const sampleHSV = hsv(rgb);
-    found.push({ color, x: (run.start + run.end) / (2 * width), uncertain: color !== 'black' && sampleHSV.v < .42 });
+    found.push({ color, x: (run.start + run.end) / (2 * width), width: (run.end - run.start) / width, uncertain: color !== 'black' && sampleHSV.v < .42 });
   }
   return found;
 }

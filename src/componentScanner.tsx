@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Locale } from './i18n';
-import { bandColors, colorHex, decodeBands, detectBandStrip, formatComponentValue, type BandColor, type ComponentType, type DetectedBand } from './componentBands';
+import { bandColors, colorHex, assessBandDirection, detectBandStrip, formatComponentValue, type BandColor, type BandReading, type ComponentType, type DetectedBand } from './componentBands';
 import './componentScanner.css';
 import { ComponentDebug } from './componentDebug';
 import { ComponentGuide } from './componentGuide';
@@ -18,7 +18,7 @@ const text = {
     privacy: 'Scanning stays on this device. Debug lets you explicitly upload a selected image.', permission: 'Camera permission was denied. Allow camera access in your browser settings, then retry. Manual color entry also works.',
     unavailable: 'Camera unavailable. Use HTTPS and a browser with camera access, or enter colors manually.', busy: 'The camera could not start. Close other camera apps and retry.', ended: 'Camera stopped. Restart to scan another component.', direction: 'Read right to left', forward: 'Read left to right',
     colors: ['Black', 'Brown', 'Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Violet', 'Grey', 'White', 'Gold', 'Silver'],
-    located: 'Component candidate located · waiting for clear, consistent bands', small: 'Component candidate located · move a little closer or improve focus to resolve its bands', placement: 'Place one component here · the detection box follows it', zoom: 'Located component · local magnified view', autoCount: 'Camera scanning detects 4 or 5 resistor bands automatically.', uncertain: 'Some bands are dark or close to the body color. The nominal value is a candidate; verify the marked colors in the magnified view.', checkColor: 'Verify color', checkTolerance: 'tolerance unconfirmed',
+    located: 'Component candidate located · waiting for clear, consistent bands', small: 'Component candidate located · move a little closer or improve focus to resolve its bands', placement: 'Place one component here · the detection box follows it', zoom: 'Located component · local magnified view', autoCount: 'Camera scanning detects 4 or 5 resistor bands automatically.', uncertain: 'Some bands are dark or close to the body color. The nominal value is a candidate; verify the marked colors in the magnified view.', checkColor: 'Verify color', checkTolerance: 'tolerance unconfirmed', preferred: 'Preferred candidate', alternatives: 'Other reading direction · verify if needed', toleranceBand: 'Tolerance band candidate', metallic: 'The gold/silver end band cannot be a leading digit: read from the opposite end.', code: 'Only this direction matches the selected color code. Verify the colors.', spacing: 'The {end} end band has a larger gap. Treating it as the tolerance band favors this direction; spacing is a clue, not proof.', left: 'left', right: 'right', conflict: 'Spacing and the selected color code suggest different directions. Check the colors or confirm with a meter.',
   },
   zh: {
     type: '元件类型', resistor: '电阻', inductor: '电感 · EIA', mil: '电感 · MIL（首环为宽银环）', count: '色环数量',
@@ -31,7 +31,7 @@ const text = {
     privacy: '扫描画面只在本机处理。Debug 可由你主动上传选定图片。', permission: '摄像头权限被拒绝。请在浏览器设置中允许访问后重试，也可以手动输入色环。',
     unavailable: '摄像头不可用，请使用 HTTPS 和支持摄像头的浏览器，也可以手动输入色环。', busy: '无法启动摄像头，请关闭其他使用摄像头的应用后重试。', ended: '摄像头已停止，重新打开即可扫描下一个元件。', direction: '从右向左读', forward: '从左向右读',
     colors: ['黑', '棕', '红', '橙', '黄', '绿', '蓝', '紫', '灰', '白', '金', '银'],
-    located: '已定位疑似元件 · 等待清晰且连续一致的色环', small: '已定位疑似元件 · 请稍微靠近或改善对焦，让色环可分辨', placement: '单个元件放在此区域附近 · 定位框会跟随', zoom: '已定位元件 · 本机局部放大', autoCount: '扫描时自动判断电阻的 4 / 5 条色环。', uncertain: '部分色环较暗或接近底色。标称值是候选结果，请在放大图中核对标记的颜色。', checkColor: '颜色待核对', checkTolerance: '容差待核对',
+    located: '已定位疑似元件 · 等待清晰且连续一致的色环', small: '已定位疑似元件 · 请稍微靠近或改善对焦，让色环可分辨', placement: '单个元件放在此区域附近 · 定位框会跟随', zoom: '已定位元件 · 本机局部放大', autoCount: '扫描时自动判断电阻的 4 / 5 条色环。', uncertain: '部分色环较暗或接近底色。标称值是候选结果，请在放大图中核对标记的颜色。', checkColor: '颜色待核对', checkTolerance: '容差待核对', preferred: '优先候选', alternatives: '另一读向候选 · 需要时展开核对', toleranceBand: '容差环候选', metallic: '末端金 / 银环不能作为开头的数字环，优先从另一端开始读。', code: '当前颜色只有这个读向符合编码，请核对色环颜色。', spacing: '{end}端色环与其他环间隔更大，优先将其作为容差环按此方向读；间距是线索，并非绝对保证。', left: '左', right: '右', conflict: '色环间距与当前颜色编码提示的读向冲突，请核对颜色或用仪表确认。',
   },
 };
 
@@ -49,7 +49,11 @@ export function ComponentScanner({ locale }: { locale: Locale }) {
   const [manual, setManual] = useState(false);
   const colors = manual ? manualBands : bands.map(b => b.color);
   const complete = colors.length === count && colors.every(c => bandColors.includes(c as BandColor));
-  const readings = complete ? decodeBands(colors as BandColor[], type) : [];
+  const assessment = assessBandDirection(complete ? colors as BandColor[] : [], type, bands.length === count ? bands : []);
+  const readings = assessment.readings;
+  const toleranceIndex = assessment.preferred ? (readings[0].reversed ? 0 : count - 1) : -1;
+  const directionNote = assessment.reason === 'spacing' ? t.spacing.replace('{end}', readings[0].reversed ? t.left : t.right) : assessment.reason === 'invalid' ? '' : t[assessment.reason];
+  const renderReading = (reading: BandReading, index: number) => <div className="scanner-candidate" key={index}><strong>{formatComponentValue(reading.value, type)} <small>{!manual && bands[reading.reversed ? 0 : bands.length - 1]?.uncertain ? t.checkTolerance : `±${reading.tolerance}%`}</small></strong><span>{reading.reversed ? t.direction : t.forward}</span></div>;
 
   useEffect(() => {
     if (!enabled) return;
@@ -100,7 +104,8 @@ export function ComponentScanner({ locale }: { locale: Locale }) {
           // colors from a component whose bands have too few source pixels.
           const strip = located.length >= 48 ? sampleComponentStrip(frame.data, canvas.width, canvas.height, located) : null;
           const found = strip ? (type === 'resistor' ? detectBandStrip(strip, 420, 9, 4) ?? detectBandStrip(strip, 420, 9, 5) : detectBandStrip(strip, 420, 9, type === 'inductor-mil' ? 5 : 4)) : null;
-          const key = found?.map(b => b.color).join(',') || '';
+          const foundDirection = found ? assessBandDirection(found.map(b => b.color), type, found) : null;
+          const key = found && foundDirection ? `${found.map(b => `${b.color}:${Boolean(b.uncertain)}`).join(',')}|${foundDirection.reason}:${foundDirection.readings[0]?.reversed}` : '';
           streak = key && key === lastKey ? streak + 1 : 1;
           lastKey = key;
           if (!found || streak < 3) { setBands([]); setStatus(located.length < 48 ? 'small' : 'located'); return; }
@@ -159,16 +164,16 @@ export function ComponentScanner({ locale }: { locale: Locale }) {
     <p role="status">{t[status]}</p>
     <figure className="scanner-magnifier" hidden={!target}><figcaption>{t.zoom}</figcaption><canvas ref={magnifier} aria-label={t.zoom}/>{bands.length > 0 && <div className="scanner-zoom-bands" aria-hidden="true">{bands.map((b, i) => <i key={i} style={{ backgroundColor: colorHex[b.color] }}>{i + 1}</i>)}</div>}</figure>
     <div className="scanner-reading" aria-live="polite">
-      {readings.length ? <>{readings.length > 1 && <p>{t.ambiguous}</p>}{readings.map((r, i) => <div key={i}><strong>{formatComponentValue(r.value, type)} <small>{!manual && bands[r.reversed ? 0 : bands.length - 1]?.uncertain ? t.checkTolerance : `±${r.tolerance}%`}</small></strong><span>{r.reversed ? t.direction : t.forward}</span></div>)}{!manual && bands.some(b => b.uncertain) && <p>{t.uncertain}</p>}<p>{t.verify}</p></> : <p>{complete ? t.invalid : t.empty}</p>}
+      {readings.length ? <><p className="scanner-direction-note">{directionNote}</p>{assessment.preferred ? <><p className="scanner-preferred">{t.preferred}</p>{renderReading(readings[0], 0)}{readings.length > 1 && <details className="scanner-alternatives"><summary>{t.alternatives}</summary>{readings.slice(1).map((r, i) => renderReading(r, i + 1))}</details>}</> : readings.map(renderReading)}{!manual && bands.some(b => b.uncertain) && <p>{t.uncertain}</p>}<p>{t.verify}</p></> : <p>{complete ? t.invalid : t.empty}</p>}
     </div>
     <p>{t.correction}</p>
     <div className="scanner-bands">{Array.from({ length: count }, (_, i) => <label key={i}>
-      {t.band} {i + 1}{!manual && bands[i]?.uncertain && <small>{t.checkColor}</small>}<span className="scanner-swatch" style={{ backgroundColor: colors[i] ? colorHex[colors[i] as BandColor] : 'transparent' }}/>
+      {t.band} {i + 1}{i === toleranceIndex && <small className="scanner-tolerance-label">{t.toleranceBand}</small>}{!manual && bands[i]?.uncertain && <small>{t.checkColor}</small>}<span className="scanner-swatch" style={{ backgroundColor: colors[i] ? colorHex[colors[i] as BandColor] : 'transparent' }}/>
       <select aria-label={`${t.band} ${i + 1}`} disabled={enabled} value={colors[i] || ''} onChange={e => edit(i, e.target.value)}><option value="">{t.unknown}</option>{bandColors.map((c, index) => <option key={c} value={c}>{t.colors[index]}</option>)}</select>
     </label>)}</div>
-    <button disabled={enabled || !colors.some(Boolean)} onClick={() => { setManualBands([...colors].reverse()); setManual(true); setStatus('manual'); }}>{t.reverse}</button>
+    <button disabled={enabled || !colors.some(Boolean)} onClick={() => { setManualBands([...colors].reverse()); setBands([]); setManual(true); setStatus('manual'); }}>{t.reverse}</button>
     <p className="note">{t.limit}</p>
-    <ComponentDebug locale={locale} context={{ componentType: type, bandCount: count, colors, readings: readings.map(r => ({ value: r.value, tolerance: r.tolerance })), scanStatus: status }} onOpen={() => { setEnabled(false); if (enabled) setStatus(bands.length ? 'paused' : 'idle'); }}/>
+    <ComponentDebug locale={locale} context={{ componentType: type, bandCount: count, colors, readings: readings.map(r => ({ value: r.value, tolerance: r.tolerance })), scanStatus: status, direction: { reason: assessment.reason, preferred: assessment.preferred, reversed: assessment.preferred ? readings[0].reversed : null } }} onOpen={() => { setEnabled(false); if (enabled) setStatus(bands.length ? 'paused' : 'idle'); }}/>
     <div className="scanner-sources"><a href="https://www.vishay.com/docs/49411/resistor_color_code_calculator.pdf" target="_blank" rel="noreferrer">Vishay · resistor codes</a><a href="https://www.bourns.com/docs/technical-documents/technical-library/inductive-components/publications/ColorCodeMarkings.pdf" target="_blank" rel="noreferrer">Bourns · inductor codes</a></div>
   </section><ComponentGuide locale={locale} onExample={(nextType, nextColors) => {
     setEnabled(false); setType(nextType); setCount(nextColors.length); setBands([]); setTarget(null); setManualBands([...nextColors]); setManual(true); setStatus('manual');

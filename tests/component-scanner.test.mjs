@@ -4,17 +4,17 @@ import { build } from 'vite';
 import react from '@vitejs/plugin-react';
 import { JSDOM } from 'jsdom';
 import { act, createElement } from 'react';
-import { bandColors, colorHex, decodeBands, detectBandStrip, formatComponentValue } from '../src/componentBands.ts';
+import { bandColors, colorHex, decodeBands, assessBandDirection, detectBandStrip, formatComponentValue } from '../src/componentBands.ts';
 import { locateComponent, sampleComponentStrip } from '../src/componentLocator.ts';
 
-function cameraFrame(colors, { width = 640, height = 360, cx = width / 2, cy = height / 2, length = 120, thickness = 36, angle = 0, body = '#d7bd96' } = {}) {
+function cameraFrame(colors, { width = 640, height = 360, cx = width / 2, cy = height / 2, length = 120, thickness = 36, angle = 0, body = '#d7bd96', positions } = {}) {
   const data = new Uint8ClampedArray(width * height * 4);
   const radians = angle * Math.PI / 180;
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const u = (x - cx) * Math.cos(radians) + (y - cy) * Math.sin(radians), v = -(x - cx) * Math.sin(radians) + (y - cy) * Math.cos(radians);
     let hex = '#a5aaa9';
     if (Math.abs(u) < length / 2 && Math.abs(v) < thickness / 2) {
-      const band = colors.findIndex((_, i) => Math.abs(u / length + .5 - (.12 + i * .76 / (colors.length - 1))) < .025);
+      const band = colors.findIndex((_, i) => Math.abs(u / length + .5 - (positions?.[i] ?? (.12 + i * .76 / (colors.length - 1)))) < .025);
       hex = band < 0 ? body : colorHex[colors[band]];
     }
     for (let c = 0; c < 3; c++) data[(y * width + x) * 4 + c] = parseInt(hex.slice(1 + c * 2, 3 + c * 2), 16);
@@ -72,6 +72,37 @@ test('rejects unsupported codes and retains ambiguous reading directions', () =>
   assert.deepEqual(decodeBands(['gold', 'red', 'black', 'brown'], 'resistor').map(r => [r.value, r.reversed]), [[1000, true]]);
   assert.equal(decodeBands(['brown', 'black', 'red', 'brown'], 'resistor').length, 2);
 });
+test('direction inference uses metallic ends and clear end spacing without hiding ambiguity', () => {
+  const geometry = xs => xs.map(x => ({ x, width: .05 }));
+  const colors = ['red', 'red', 'black', 'black', 'brown'];
+  const positions = [.15, .27, .39, .51, .76];
+  const forward = assessBandDirection(colors, 'resistor', geometry(positions));
+  assert.equal(forward.reason, 'spacing'); assert.equal(forward.preferred, true);
+  assert.equal(forward.readings[0].value, 220); assert.equal(forward.readings[0].reversed, false);
+  assert.equal(forward.readings.length, 2, 'retain the other valid direction');
+  const backward = assessBandDirection([...colors].reverse(), 'resistor', geometry(positions.map(x => 1 - x).reverse()));
+  assert.equal(backward.reason, 'spacing'); assert.equal(backward.readings[0].value, 220);
+  assert.equal(backward.readings[0].reversed, true);
+  for (const end of ['gold', 'silver']) {
+    const metallic = assessBandDirection([end, 'red', 'black', 'brown'], 'resistor');
+    assert.equal(metallic.reason, 'metallic'); assert.equal(metallic.readings[0].reversed, true);
+    assert.equal(metallic.readings[0].value, 1000);
+  }
+  for (const pixels of [[], geometry([.1, .3, .5, .7, .9]), geometry([.1, .31, .51, .71, .9]), geometry([.1, .2, .3, .4]), geometry([NaN, .27, .39, .51, .76])]) {
+    const uncertain = assessBandDirection(colors, 'resistor', pixels);
+    assert.equal(uncertain.preferred, false); assert.equal(uncertain.reason, 'ambiguous');
+    assert.equal(uncertain.readings.length, 2);
+  }
+  assert.equal(assessBandDirection(['orange', 'orange', 'black', 'black', 'brown'], 'resistor').reason, 'code');
+  assert.equal(assessBandDirection(['brown', 'brown', 'brown', 'brown'], 'resistor').reason, 'ambiguous', 'identical values do not establish a direction');
+  const wide = geometry([.1, .2, .3, .5]); wide[3].width = .3;
+  assert.equal(assessBandDirection(['brown', 'black', 'red', 'brown'], 'resistor', wide).reason, 'ambiguous', 'wide bands must not fake a clear end gap');
+  const conflict = assessBandDirection(['brown', 'black', 'red', 'gold'], 'resistor', geometry([.1, .45, .6, .75]));
+  assert.equal(conflict.reason, 'conflict'); assert.equal(conflict.preferred, false);
+  assert.equal(assessBandDirection(['red', 'red', 'red'], 'resistor').reason, 'invalid');
+  assert.equal(assessBandDirection(['silver', 'blue', 'gold', 'grey', 'silver'], 'inductor-mil', geometry(positions)).reason, 'ambiguous', 'resistor spacing must not reinterpret a MIL ID band');
+});
+
 test('pixel recognition tolerates small noise but rejects blank and wrong band count', () => {
   for (const colors of [['brown', 'black', 'red', 'gold'], ['yellow', 'violet', 'orange', 'gold'], ['red', 'orange', 'violet', 'black', 'brown'], ['silver', 'blue', 'gold', 'grey', 'silver']]) {
     const image = strip(colors, { noise: 3 });
@@ -128,11 +159,23 @@ test('camera loop stabilizes, clears old values, pauses, handles denial and rele
     frame = cameraFrame(['yellow', 'violet', 'orange', 'gold'], { cx: 465, cy: 100 });
     await wait(1500);
     assert.match(document.querySelector('.scanner-reading').textContent, /47 kΩ/);
-    frame = cameraFrame(['red', 'red', 'black', 'black', 'blue'], { cx: 200, cy: 270, length: 85, thickness: 25, body: '#70aac4' });
+    frame = cameraFrame(['red', 'red', 'black', 'black', 'blue'], { cx: 200, cy: 270, length: 100, thickness: 25, body: '#70aac4', positions: [.15, .27, .39, .51, .76] });
     await wait(1500);
     assert.equal(document.querySelectorAll('.scanner-bands select').length, 5, 'live camera detects band count');
     assert.match(document.querySelector('.scanner-reading').textContent, /220 Ω/);
     assert.equal(opens, 1, 'automatic count must not reopen the camera');
+    assert.match(document.querySelector('.scanner-direction-note').textContent, /右端色环/);
+    assert.match(document.querySelector('.scanner-preferred').textContent, /优先候选/);
+    assert.match(document.querySelector('.scanner-reading > .scanner-candidate').textContent, /220 Ω/);
+    assert.equal(document.querySelector('.scanner-alternatives').open, false);
+    assert.match(document.querySelector('.scanner-bands label:last-child').textContent, /容差环候选/);
+    await act(async () => document.querySelector('.scanner-alternatives summary').click());
+    assert.match(document.querySelector('.scanner-alternatives').textContent, /60 kΩ/);
+    frame = cameraFrame(['blue', 'black', 'black', 'red', 'red'], { cx: 200, cy: 270, length: 100, thickness: 25, body: '#70aac4', positions: [.24, .49, .61, .73, .85] });
+    await wait(1500);
+    assert.match(document.querySelector('.scanner-reading > .scanner-candidate').textContent, /220 Ω.*从右向左读/);
+    assert.match(document.querySelector('.scanner-direction-note').textContent, /左端色环/);
+    assert.match(document.querySelector('.scanner-bands label:first-child').textContent, /容差环候选/);
     frame = cameraFrame(['yellow', 'violet', 'orange', 'gold'], { cx: 465, cy: 100 });
     await wait(1500);
     assert.equal(document.querySelectorAll('.scanner-bands select').length, 4);
@@ -143,6 +186,9 @@ test('camera loop stabilizes, clears old values, pauses, handles denial and rele
     const select = document.querySelector('.scanner-bands select');
     await act(async () => { select.value = 'red'; select.dispatchEvent(new dom.window.Event('change', { bubbles: true })); });
     assert.match(document.querySelector('.scanner-reading').textContent, /27 kΩ/);
+    await act(async () => document.querySelector('.component-scanner > button').click());
+    assert.match(document.querySelector('.scanner-reading > .scanner-candidate').textContent, /27 kΩ.*从右向左读/);
+    assert.match(document.querySelector('.scanner-bands label:first-child').textContent, /容差环候选/);
     const exampleSelect = document.querySelector('.guide-example-select select');
     await act(async () => { exampleSelect.value = '4'; exampleSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true })); });
     assert.match(document.querySelector('.guide-example-result').textContent, /6.8 µH ±10%/);

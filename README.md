@@ -36,8 +36,13 @@ single roughly horizontal component near the middle. A local color/geometry
 detector searches the frame, follows the painted body and shows a magnified crop.
 Resistor scanning detects 4 or 5 bands automatically without restarting the camera.
 The reader samples the located body every 450 ms and requires three matching frames before
-displaying a candidate. Pause to inspect or correct colors. Both directions are
-shown when the code is ambiguous. Camera tracks stop on pause, navigation, or
+displaying a candidate. Pause to inspect or correct colors. Direction inference
+checks valid digit/multiplier/tolerance positions and metallic end bands. Camera
+readings also compare clear gaps between band edges: a distinctly isolated end
+band favors that end as tolerance. The preferred candidate explains its evidence
+and keeps another valid direction in an expandable section. Equal/uncertain gaps
+retain both candidates; conflicting spacing and colors prompt verification.
+Manual colors alone provide no spacing evidence. Dim tolerance colors stay unconfirmed. Camera tracks stop on pause, navigation, or
 when the page becomes hidden; frames are never uploaded or saved.
 
 This experimental reader supports 4/5-band resistors, 4-band EIA inductors and
@@ -56,7 +61,7 @@ the service-owned SDK from `https://discuss.integ.life/v1/feedback/client.js`.
 Compression, validation, private storage, retention, receipts and operator export
 are maintained in `integ-life/integ-feedback` for other projects to reuse.
 Opening Debug or selecting an image does not upload it. Reports include the
-selected type, band count, colors, candidate values and optional description.
+selected type, band count, colors, candidate values, direction evidence and optional description.
 
 The [color-code and measurement guide](https://tools.integ.life/zh/component-scanner/#component-guide)
 below the reader explains resistance/inductance units, nominal values and tolerance,
