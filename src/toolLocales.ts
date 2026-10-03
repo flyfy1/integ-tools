@@ -700,6 +700,7 @@ const dictionaries: Partial<
 };
 
 export function localizedName(tool: Tool, locale: Locale) {
+  if (tool.kind === 'component-scanner' && locale === 'zh') return '电阻 / 电感摄像头识别';
   if (locale === "en") return tool.name;
   if (locale === "ja" || locale === "id") {
     const direct = newNames[locale][tool.slug];
@@ -711,6 +712,7 @@ export function localizedName(tool: Tool, locale: Locale) {
   return i < 0 ? tool.name : names[locale][i];
 }
 export function localizedDescription(tool: Tool, locale: Locale) {
+  if (tool.kind === 'component-scanner' && locale === 'zh') return '用手机摄像头连续扫描色环，在本机读取标称阻值或电感量。实验版，请核对识别出的颜色。';
   if (locale === "en") return tool.description;
   const n = localizedName(tool, locale);
   if (locale === "zh")
@@ -738,9 +740,11 @@ export function localizedDescription(tool: Tool, locale: Locale) {
     : `استخدم ${n} بسرعة وخصوصية داخل متصفحك.`;
 }
 export function localizedAbout(tool: Tool, locale: Locale) {
+  if (tool.kind === 'component-scanner' && locale === 'zh') return '支持常见 4/5 环电阻、4 环 EIA 电感和 5 环 MIL 电感。先选择元件类型，再核对摄像头候选结果，可手动修正颜色。读取的是色环标称值，不是实际测量值。';
   return localizedDescription(tool, locale);
 }
 export function localizedHow(tool: Tool, locale: Locale) {
+  if (tool.kind === 'component-scanner' && locale === 'zh') return '允许后置摄像头访问，将单个元件横放，让主体填满取景框，全部色环清晰可见。在均匀光线下等待读数，暂停后核对或修正颜色。';
   if (locale === "en") return tool.how;
   return locale === "zh"
     ? "输入参数并立即查看结果；数据不会离开此设备。"

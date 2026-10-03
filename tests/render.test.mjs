@@ -41,6 +41,12 @@ test('all localized routes mount with the already-loaded comments SDK', async ()
         const comments = document.querySelector('integ-comments');
         assert.equal(comments.loadedResource, `tool:${tool.slug}`);
         assert.equal(comments.loadedLanguage, locale);
+        if (tool.kind === 'component-scanner') {
+          assert.ok(document.querySelector('video[playsinline]'));
+          assert.equal(document.querySelectorAll('.scanner-bands select').length, 4);
+          assert.equal(document.querySelector('.scanner-reading strong'), null);
+          continue;
+        }
         if (tool.kind === 'qrcode') {
           assert.ok(document.querySelector('.qr-code-preview'), `${locale}/${tool.slug}: missing QR preview`);
           assert.equal(document.querySelector('.qr-status strong').textContent.length > 0, true);

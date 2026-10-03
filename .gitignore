@@ -39,3 +39,5 @@ public/build-version.json
 /.wrangler/
 /outputs/
 /work/
+
+*.tsbuildinfo
