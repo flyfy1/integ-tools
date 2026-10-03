@@ -127,7 +127,7 @@ test('dim colored bands on a blue body preserve five-band nominal decoding and f
 });
 
 await build({ configFile: false, plugins: [react()], logLevel: 'silent', build: { ssr: 'src/componentScanner.tsx', outDir: 'work/scanner-tests' } });
-test('camera loop stabilizes, clears old values, pauses, handles denial and releases late streams', async () => {
+test('camera reads, stops automatically, preserves review, rescans and releases late streams', async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://tools.integ.life/zh/component-scanner/' });
   for (const key of ['window', 'document', 'HTMLElement', 'DOMException']) globalThis[key] = dom.window[key];
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
@@ -155,8 +155,14 @@ test('camera loop stabilizes, clears old values, pauses, handles denial and rele
   const stream = { getTracks: () => [track], getVideoTracks: () => [track] };
   Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: async constraints => { opens++; assert.equal(constraints.audio, false); assert.equal(constraints.video.facingMode.ideal, 'environment'); return stream; } } });
   const root = createRoot(document.getElementById('root'));
-  const start = () => document.querySelector('.actions button');
+  const start = () => document.querySelector('.scanner-capture-actions button') ?? document.querySelector('.scanner-review-actions button:last-child');
   const wait = ms => act(async () => { await new Promise(resolve => setTimeout(resolve, ms)); });
+  const assertReview = () => {
+    assert.equal(document.querySelector('video').srcObject, null);
+    assert.equal(document.querySelector('.scanner-view').hidden, true);
+    assert.equal(document.querySelector('.scanner-reading strong') !== null, true);
+    assert.equal(document.activeElement, document.querySelector('.scanner-result'));
+  };
   try {
     await act(async () => root.render(createElement(ComponentScanner, { locale: 'zh' })));
     assert.equal(document.querySelector('.scanner-reading strong'), null);
@@ -164,47 +170,51 @@ test('camera loop stabilizes, clears old values, pauses, handles denial and rele
     await wait(550);
     assert.equal(document.querySelector('.scanner-reading strong'), null);
     await act(async () => start().click());
-    assert.match(document.querySelector('.scanner-reading').textContent, /1 kΩ/, 'pause reads the first localized frame before temporal stability');
-    assert.equal(stops, 1);
-    await act(async () => start().click());
-    await wait(1500);
+    assert.match(document.querySelector('.scanner-reading').textContent, /1 kΩ/, 'manual pause reads before temporal stability');
+    assert.equal(stops, 1); assertReview();
+    await act(async () => start().click()); await wait(1500);
     assert.match(document.querySelector('.scanner-reading').textContent, /1 kΩ/);
-    frame = cameraFrame([]);
-    await wait(500);
-    assert.equal(document.querySelector('.scanner-reading strong'), null, 'old result must clear');
-    frame = cameraFrame(['yellow', 'violet', 'orange', 'gold'], { cx: 465, cy: 100 });
-    await wait(1500);
-    assert.match(document.querySelector('.scanner-reading').textContent, /47 kΩ/);
+    assert.equal(stops, 2, 'stable reading closes the stream once'); assertReview();
+    frame = cameraFrame([]); await wait(500);
+    assert.match(document.querySelector('.scanner-reading').textContent, /1 kΩ/, 'closed camera preserves captured result');
+    await act(async () => document.querySelector('.scanner-review-actions button.primary').click());
+    assert.match(document.querySelector('.scanner-status').textContent, /已核对色环/);
+    assert.equal(document.querySelector('.scanner-review-actions button.primary').disabled, true);
+    await act(async () => start().click()); await wait(500);
+    assert.equal(document.querySelector('.scanner-reading strong'), null, 'rescan clears old result');
+    assert.equal(document.querySelector('.scanner-view').hidden, false);
+    frame = cameraFrame(['black', 'black', 'black', 'black']); await wait(1500);
+    assert.equal(stops, 2, 'localization without a valid numeric reading must not auto-stop');
+    assert.equal(document.querySelector('.scanner-reading strong'), null);
+    frame = cameraFrame(['yellow', 'violet', 'orange', 'gold'], { cx: 465, cy: 100 }); await wait(1500);
+    assert.match(document.querySelector('.scanner-reading').textContent, /47 kΩ/); assertReview();
+    assert.equal(stops, 3);
     frame = cameraFrame(['red', 'red', 'black', 'black', 'blue'], { cx: 200, cy: 270, length: 100, thickness: 25, body: '#70aac4', positions: [.15, .27, .39, .51, .76] });
-    await wait(1500);
-    assert.equal(document.querySelectorAll('.scanner-bands select').length, 5, 'live camera detects band count');
-    assert.match(document.querySelector('.scanner-reading').textContent, /220 Ω/);
-    assert.equal(opens, 2, 'automatic count must not reopen the camera');
+    const beforeOpens = opens; await act(async () => start().click()); await wait(1500);
+    assert.equal(document.querySelectorAll('.scanner-bands select').length, 5);
+    assert.match(document.querySelector('.scanner-reading').textContent, /220 Ω/); assertReview();
+    assert.equal(opens, beforeOpens + 1, 'automatic band count does not reopen camera');
     assert.match(document.querySelector('.scanner-direction-note').textContent, /右端色环/);
     assert.match(document.querySelector('.scanner-preferred').textContent, /优先候选/);
-    assert.match(document.querySelector('.scanner-reading > .scanner-candidate').textContent, /220 Ω/);
     assert.equal(document.querySelector('.scanner-alternatives').open, false);
+    assert.equal(document.querySelectorAll('.scanner-color-summary li').length, 5);
     assert.match(document.querySelector('.scanner-bands label:last-child').textContent, /容差环候选/);
     await act(async () => document.querySelector('.scanner-alternatives summary').click());
     assert.match(document.querySelector('.scanner-alternatives').textContent, /60 kΩ/);
     frame = cameraFrame(['blue', 'black', 'black', 'red', 'red'], { cx: 200, cy: 270, length: 100, thickness: 25, body: '#70aac4', positions: [.24, .49, .61, .73, .85] });
-    await wait(1500);
-    assert.match(document.querySelector('.scanner-reading > .scanner-candidate').textContent, /220 Ω.*从右向左读/);
+    await act(async () => start().click()); await wait(1500);
+    assert.match(document.querySelector('.scanner-reading > .scanner-candidate').textContent, /220 Ω.*从右向左读/); assertReview();
     assert.match(document.querySelector('.scanner-direction-note').textContent, /左端色环/);
-    assert.match(document.querySelector('.scanner-bands label:first-child').textContent, /容差环候选/);
     frame = cameraFrame(['yellow', 'violet', 'orange', 'gold'], { cx: 465, cy: 100 });
-    await wait(1500);
-    assert.equal(document.querySelectorAll('.scanner-bands select').length, 4);
-    await act(async () => start().click());
-    assert.equal(stops, 2);
-    assert.equal(document.querySelector('video').srcObject, null);
-    assert.match(document.querySelector('[role="status"]').textContent, /已暂停/);
+    await act(async () => start().click()); await wait(1500);
+    assert.equal(document.querySelectorAll('.scanner-bands select').length, 4); assertReview();
+    await act(async () => document.querySelector('.scanner-review-actions button.primary').click());
     const select = document.querySelector('.scanner-bands select');
     await act(async () => { select.value = 'red'; select.dispatchEvent(new dom.window.Event('change', { bubbles: true })); });
     assert.match(document.querySelector('.scanner-reading').textContent, /27 kΩ/);
-    await act(async () => document.querySelector('.component-scanner > button').click());
+    assert.equal(document.querySelector('.scanner-review-actions button.primary').disabled, false, 'correction requires a new confirmation');
+    await act(async () => document.querySelector('.scanner-correction > button').click());
     assert.match(document.querySelector('.scanner-reading > .scanner-candidate').textContent, /27 kΩ.*从右向左读/);
-    assert.match(document.querySelector('.scanner-bands label:first-child').textContent, /容差环候选/);
     const exampleSelect = document.querySelector('.guide-example-select select');
     await act(async () => { exampleSelect.value = '4'; exampleSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true })); });
     assert.match(document.querySelector('.guide-example-result').textContent, /6.8 µH ±10%/);
@@ -221,7 +231,7 @@ test('camera loop stabilizes, clears old values, pauses, handles denial and rele
     await act(async () => start().click());
     await act(async () => root.unmount());
     await act(async () => resolveStream(stream));
-    assert.equal(stops, 3, 'late permission result must stop after unmount');
+    assert.equal(stops, 7, 'late permission result must stop after unmount');
   } finally { dom.window.close(); }
 });
 

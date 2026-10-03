@@ -36,7 +36,11 @@ single roughly horizontal component near the middle. A local color/geometry
 detector searches the frame, follows the painted body and shows a magnified crop.
 Resistor scanning detects 4 or 5 bands automatically without restarting the camera.
 The reader samples the located body every 450 ms and requires three matching frames before
-displaying a candidate. Pause to inspect or correct colors. Direction inference
+capturing a candidate. A stable, decodable reading closes the camera automatically
+and opens a phone-friendly review: value, frozen component photo, color sequence,
+and tolerance uncertainty. Detection alone does not stop scanning. Users can also
+use the current frame before stability, confirm colors, correct them, or scan again.
+Direction details and editing controls are collapsed until needed. Direction inference
 checks valid digit/multiplier/tolerance positions and metallic end bands. Camera
 readings also compare clear gaps between band edges: a distinctly isolated end
 band favors that end as tolerance. The preferred candidate explains its evidence
@@ -77,3 +81,8 @@ brightness warnings do not reset the vote. Pause re-reads the frozen frame
 immediately. Debug uses that frame (component crop when located) without asking
 for another file, with up to three optional extra photos. Changing previews
 clears consent, and a successful receipt must confirm every attachment.
+
+Review retains the exact captured frame after the camera track stops. New scans
+clear the previous value and report draft; color corrections keep the photo and
+require another confirmation. Phone capture preserves the video aspect ratio
+inside a bounded viewport so localization boxes match the visible source.
