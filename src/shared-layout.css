@@ -2,7 +2,7 @@
 :root { color:var(--il-text); background:var(--il-bg); --ink:var(--il-text); --paper:var(--il-surface); --line:var(--il-border); --coral:var(--il-accent); --teal:var(--il-accent); font-family:system-ui,-apple-system,sans-serif; }
 .il-catalog-page,.il-tool-page { max-width:1200px; padding:0 32px; }
 .hero { max-width:none; padding:44px 0 28px; }
-.hero h1,.tool-hero h1 { max-width:850px; font-size:clamp(30px,4vw,44px); letter-spacing:-.035em; line-height:1.15; }
+.hero h1,.tool-hero h1 { max-width:850px; font-size:clamp(30px,4vw,44px); letter-spacing:-.035em; line-height:1.15; text-wrap:balance; }
 .hero>p:not(.eyebrow),.tool-hero>p:not(.eyebrow) { color:var(--il-muted); font-size:16px; line-height:1.6; }
 .eyebrow { margin-bottom:10px; font-size:11px; letter-spacing:.08em; }
 .search { height:52px; border-color:var(--il-border); box-shadow:none; border-radius:var(--il-radius); margin-top:24px; padding:0 14px; }
@@ -48,6 +48,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .color-input { background:var(--il-surface); }
 .qr-preview { background:var(--il-subtle); }
 .qr-hint,.qr-status span,.qr-empty,.guide-small,.guide-sources { color:var(--il-muted); }
+.qr-actions button { border-radius:var(--il-radius); }
 .qr-actions .primary { background:var(--il-accent); border-color:var(--il-accent); color:var(--il-on-accent); }
 .guide-cards article { background:var(--il-surface); }
 .guide-cards article p { color:var(--il-muted); }
