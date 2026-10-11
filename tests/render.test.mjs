@@ -80,5 +80,13 @@ test('all localized routes mount with the already-loaded comments SDK', async ()
     // Changing language on the same tool must reconnect with translated labels.
     await navigate('/zh/pii-redactor/');
     assert.equal(document.querySelector('integ-comments').loadedLanguage, 'zh');
+    // Appearance is local presentation and must preserve the current tool output.
+    const beforeAppearance = document.querySelector('textarea[readonly]').value;
+    const appearance = document.querySelector('.il-appearance select');
+    await act(async () => { appearance.value = 'dark'; appearance.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    assert.equal(document.documentElement.dataset.integTheme, 'dark');
+    assert.equal(localStorage.getItem('integ-ui.appearance'), 'dark');
+    assert.equal(document.querySelector('textarea[readonly]').value, beforeAppearance);
+    assert.equal(document.querySelector('[data-ui-version]').dataset.uiVersion, '0.1.0');
   } finally { await act(async () => root.unmount()); dom.window.close(); }
 });
