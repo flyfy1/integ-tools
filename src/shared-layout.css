@@ -44,3 +44,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 @media(max-width:520px) { .grid { grid-template-columns:1fr; } .grid article { min-height:180px; } .copy { float:none; margin:12px 0 0; } }
 @media(prefers-reduced-motion:reduce) { .grid article { transition:none; } }
+/* Specialized tools share UI surfaces; QR pixels and component band colors stay literal. */
+.color-input { background:var(--il-surface); }
+.qr-preview { background:var(--il-subtle); }
+.qr-hint,.qr-status span,.qr-empty,.guide-small,.guide-sources { color:var(--il-muted); }
+.qr-actions .primary { background:var(--il-accent); border-color:var(--il-accent); color:var(--il-on-accent); }
+.guide-cards article { background:var(--il-surface); }
+.guide-cards article p { color:var(--il-muted); }
+.scanner-preferred,.scanner-tolerance-label { color:var(--il-accent); }
+.component-guide a,.scanner-sources a,.scanner-guide-link a { color:var(--il-accent); }
