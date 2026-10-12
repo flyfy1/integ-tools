@@ -5,3 +5,20 @@ test("localized tool pages load shared comments",async()=>{const html=await read
 test("every registered tool has an implementation",()=>{for(const tool of tools){if(tool.category==="finance")assert.ok(getCalculator(tool.kind),`${tool.slug} is missing a calculator`);else assert.ok(getDeveloperEngine(tool.kind)||tool.kind.startsWith("codex-")||["json","yaml","csv","base64","url","html","unicode","jwt","hash","uuid","password","regex","diff","case","lines","timestamp","timezone","cron","chmod","color","pxrem","curl","headers","datauri","qrcode","component-scanner","slug","wordcount"].includes(tool.kind),`${tool.slug} is missing an engine`)}});
 test("new high-intent tools return useful results",async()=>{assert.match(await getDeveloperEngine("json-typescript").run({input:'{"id":1}',secondary:"User",option:""}),/export type User/);assert.match(await getDeveloperEngine("subnet").run({input:"192.168.1.10\/24",secondary:"",option:""}),/192\.168\.1\.255/);assert.match(getCalculator("percentage").calculate({oldValue:80,newValue:100})[1].value,/25%/)})
 test("calculator interfaces do not fall back to English",()=>{const labels=new Set;for(const definition of Object.values(calculators)){const values=Object.fromEntries(definition.fields.map(field=>[field.key,field.defaultValue]));for(const field of definition.fields)labels.add(field.label);for(const result of definition.calculate(values))labels.add(result.label)}const accepted=new Set(["CAGR","Runway","Leverage","Margin","Markup"]);for(const locale of locales.filter(locale=>locale!=="en"))for(const label of labels)if(!accepted.has(label))assert.notEqual(translateField(label,locale),label,`${locale} missing: ${label}`);for(const locale of locales.filter(locale=>locale!=="en")){assert.notEqual(translateResultValue("Increase",locale),"Increase");assert.notEqual(translateResultValue("18 months",locale),"18 months");assert.notEqual(translateResultValue("4y 2m",locale),"4y 2m")}})
+
+test("catalogs are readable and navigable before JavaScript runs",async()=>{
+  for(const locale of locales){
+    const html=await readFile(`dist/${locale}/index.html`,"utf8");
+    const dom=new (await import("jsdom")).JSDOM(html);
+    const main=dom.window.document.querySelector("#root main");
+    assert.ok(main,`Missing initial catalog for ${locale}`);
+    assert.equal(main.querySelectorAll("article").length,tools.length);
+    for(const tool of tools) assert.ok(main.querySelector(`a[href="/${locale}/${tool.slug}/"]`),`Missing ${locale}/${tool.slug}`);
+    for(const language of locales) assert.ok(main.querySelector(`nav a[href="/${language}/"]`));
+    assert.ok(!main.closest("noscript"),"Catalog must be present before JS starts");
+    dom.window.close();
+  }
+  const root=await readFile("dist/index.html","utf8");
+  assert.match(root,/data-static-catalog="en"/);
+  assert.match(root,/href="\/en\/json-formatter\/"/);
+});
