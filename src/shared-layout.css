@@ -19,7 +19,7 @@
 .grid article { min-height:210px; padding:22px; background:var(--il-surface); border:1px solid var(--il-border); border-radius:var(--il-radius); transition:border-color .15s; }
 .grid article:hover { box-shadow:none; transform:none; border-color:var(--il-accent); }
 .grid article h3 { font-size:20px; margin:18px 0 8px; }
-.grid article p,.grid article .index { color:var(--il-muted); }
+.grid article p { color:var(--il-muted); }
 .grid article a { margin-top:auto; color:var(--il-accent); font-size:14px; font-weight:600; text-decoration:none; min-height:44px; display:flex; align-items:center; }
 .grid article a:hover { text-decoration:underline; }
 .privacy { background:var(--il-subtle); color:var(--il-text); border-radius:var(--il-radius); padding:28px; margin:36px 0; grid-template-columns:48px 1fr; gap:20px; }
