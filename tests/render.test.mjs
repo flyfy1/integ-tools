@@ -6,7 +6,7 @@ import { JSDOM } from 'jsdom';
 import { act, createElement } from 'react';
 import { tools } from '../src/tools.ts';
 import { getDeveloperEngine } from '../src/engines/registry.ts';
-import { locales } from '../src/i18n.ts';
+import { locales, copy } from '../src/i18n.ts';
 
 await build({ configFile: false, plugins: [react()], logLevel: 'silent', build: { ssr: 'src/App.tsx', outDir: 'work/render-tests' } });
 process.env.NODE_ENV = 'development';
@@ -35,8 +35,27 @@ test('all localized routes mount with the already-loaded comments SDK', async ()
     for (const locale of locales) {
       await navigate(`/${locale}/`);
       assert.equal(document.querySelectorAll('.catalog article').length, tools.length);
+      const t = copy[locale];
+      const aiTools = tools.filter(tool => tool.category === 'ai');
+      assert.equal(aiTools.length, 3);
+      for (const category of ['ai', 'developer', 'finance', 'all']) {
+        const filter = [...document.querySelectorAll('.filters button')].find(button => button.textContent === t[category]);
+        assert.ok(filter, `${locale}: missing ${category} filter`);
+        await act(async () => filter.click());
+        const expected = tools.filter(tool => category === 'all' || tool.category === category);
+        const cards = [...document.querySelectorAll('.catalog article')];
+        assert.equal(cards.length, expected.length);
+        for (const [index, card] of cards.entries()) {
+          const entry = expected[index];
+          assert.equal(card.querySelector('.category').textContent, t[entry.category]);
+          assert.equal(card.querySelector('a').getAttribute('href'), `/${locale}/${entry.slug}/`);
+          assert.equal(card.querySelector('.time-sensitive')?.textContent ?? null, entry.category === 'ai' ? t.timeSensitive : null);
+        }
+      }
       for (const tool of tools) {
         await navigate(`/${locale}/${tool.slug}/`);
+        assert.equal(document.querySelector('.tool-hero .time-sensitive')?.textContent ?? null, tool.category === 'ai' ? t.timeSensitive : null);
+        assert.equal(document.querySelector('.tool-hero .eyebrow').textContent, `${t[tool.category]} · ${t.local}`);
         assert.ok(document.querySelector('.workbench'), `${locale}/${tool.slug}: missing workbench`);
         const comments = document.querySelector('integ-comments');
         assert.equal(comments.loadedResource, `tool:${tool.slug}`);

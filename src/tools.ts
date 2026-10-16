@@ -1,7 +1,9 @@
-export type Category = "developer" | "finance";
+export type Category = "developer" | "finance" | "ai";
 export type Tool = { slug: string; name: string; description: string; category: Category; kind: string; keywords: string[]; about: string; how: string };
 const dev = (slug: string, name: string, description: string, kind: string, keywords: string[] = []) => ({ slug, name, description, category: "developer" as const, kind, keywords, about: description + " Processing happens only in this browser.", how: "Paste or enter your data, choose an action, then copy or download the local result." });
 const fin = (slug: string, name: string, description: string, kind: string, keywords: string[] = []) => ({ slug, name, description, category: "finance" as const, kind, keywords, about: description + " Change the assumptions to explore your own scenario.", how: "Enter your assumptions and review the calculated estimate and breakdown." });
+
+const ai = (...args: Parameters<typeof dev>) => ({ ...dev(...args), category: "ai" as const });
 
 export const tools: Tool[] = [
   { slug: 'component-scanner', name: 'Resistor & Inductor Camera Reader', description: 'Scan color bands with your phone camera to read nominal resistance or inductance locally. Experimental; verify the detected colors.', category: 'developer', kind: 'component-scanner', keywords: ['resistor', 'inductor', 'color code', 'camera', '电阻', '电感', '色环', '阻值'], about: 'Read common 4/5-band resistors, 4-band EIA inductors and 5-band MIL inductors. Select the component type, review camera candidates and correct colors locally. This reads marked nominal values rather than measuring the component.', how: 'Allow rear-camera access. Hold a single component roughly horizontally near the middle; the detector follows its body and magnifies it. Keep every band visible under diffuse light, wait for consistent frames, then pause to check or correct colors.' },
@@ -50,9 +52,9 @@ export const tools: Tool[] = [
   dev("download-time-calculator", "Download Time Calculator", "Estimate transfer time from file size and connection speed.", "downloadtime", ["file transfer", "mbps", "bandwidth"]),
   dev("token-estimator", "LLM Token Estimator", "Estimate token count and context usage for prompts without uploading text.", "tokens", ["chatgpt tokens", "context window", "prompt"]),
   dev("pii-redactor", "PII & Secret Redactor", "Mask emails, phone numbers, IP addresses, API keys and JWTs before sharing text.", "redactor", ["privacy", "remove sensitive data", "prompt security"]),
-  dev("codex-plan-cost", "Codex Plan Cost Comparator", "Compare Codex-enabled ChatGPT plans across countries, currencies, taxes and team sizes.", "codex-plan-cost", ["codex pricing", "chatgpt plan", "regional price", "subscription"]),
-  dev("codex-reset-timer", "Codex Usage Reset Timer", "Save the reset time shown by Codex and track the countdown locally.", "codex-reset", ["codex limit", "5 hour limit", "weekly reset", "usage tracker"]),
-  dev("codex-credit-estimator", "Codex Credit Estimator", "Estimate Codex credits from input, cached input and output tokens using the current rate card.", "codex-credits", ["codex credits", "token cost", "usage estimate", "gpt-5.5"]),
+  ai("codex-plan-cost", "Codex Plan Cost Comparator", "Compare Codex-enabled ChatGPT plans across countries, currencies, taxes and team sizes.", "codex-plan-cost", ["codex pricing", "chatgpt plan", "regional price", "subscription"]),
+  ai("codex-reset-timer", "Codex Usage Reset Timer", "Save the reset time shown by Codex and track the countdown locally.", "codex-reset", ["codex limit", "5 hour limit", "weekly reset", "usage tracker"]),
+  ai("codex-credit-estimator", "Codex Credit Estimator", "Estimate Codex credits from input, cached input and output tokens using the current rate card.", "codex-credits", ["codex credits", "token cost", "usage estimate", "gpt-5.5"]),
   fin("mortgage-payment", "Mortgage Payment & Amortization", "Calculate fixed-rate monthly payments, total interest and amortization.", "mortgage", ["loan", "amortization"]),
   fin("mortgage-leverage", "Mortgage Leverage & Downside", "Model property equity, leverage and price-drop downside scenarios.", "leverage", ["property", "loan"]),
   fin("mortgage-prepayment", "Mortgage Prepayment Calculator", "Estimate the interest and time saved by paying extra.", "prepayment", ["loan", "interest"]),

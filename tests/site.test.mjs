@@ -1,4 +1,4 @@
-import test from "node:test"; import assert from "node:assert/strict"; import { readFile,stat } from "node:fs/promises";import { tools } from "../src/tools.ts";import { locales } from "../src/i18n.ts";import { calculators,getCalculator } from "../src/calculators.ts";import { getDeveloperEngine } from "../src/engines/registry.ts";import { translateField,translateResultValue } from "../src/toolLocales.ts";
+import test from "node:test"; import assert from "node:assert/strict"; import { readFile,stat } from "node:fs/promises";import { tools } from "../src/tools.ts";import { locales,copy } from "../src/i18n.ts";import { calculators,getCalculator } from "../src/calculators.ts";import { getDeveloperEngine } from "../src/engines/registry.ts";import { translateField,translateResultValue } from "../src/toolLocales.ts";
 test("generates a standalone route for every localized tool",async()=>{const xml=await readFile("dist/sitemap.xml","utf8");const count=(xml.match(/<url>/g)||[]).length;assert.equal(count,(tools.length+1)*locales.length);for(const l of locales){for(const tool of tools){const route=`/${l}/${tool.slug}/`;const h=await readFile(`dist${route}index.html`,"utf8");assert.match(h,new RegExp(`lang="${l}"`));assert.match(h,new RegExp(`<link rel="canonical" href="https://tools\\.integ\\.life${route}"`));for(const alternate of locales)assert.match(h,new RegExp(`hreflang="${alternate}"`));assert.ok(xml.includes(`<loc>https://tools.integ.life${route}</loc>`),`${route} missing from sitemap`)}const h=await readFile(`dist/${l}/json-formatter/index.html`,"utf8");assert.match(h,/FAQPage/);assert.match(h,/BreadcrumbList/);assert.match(h,/hreflang="x-default"/)}await stat("dist/CNAME");await stat("dist/.nojekyll")});
 test("SEO files target production domain",async()=>{assert.match(await readFile("dist/robots.txt","utf8"),/https:\/\/tools\.integ\.life\/sitemap\.xml/);assert.equal((await readFile("dist/CNAME","utf8")).trim(),"tools.integ.life")});
 test("localized tool pages load shared comments",async()=>{const html=await readFile("dist/en/json-formatter/index.html","utf8");assert.match(html,/https:\/\/discuss\.integ\.life\/sdk\/v1\/comments\.js/);const source=await readFile("src/App.tsx","utf8");assert.match(source,/pk_tools_web_v1_9c2f6d/);assert.match(source,/comments\.setAttribute\("resource",`tool:\$\{slug\}`\)/)});
@@ -21,4 +21,28 @@ test("catalogs are readable and navigable before JavaScript runs",async()=>{
   const root=await readFile("dist/index.html","utf8");
   assert.match(root,/data-static-catalog="en"/);
   assert.match(root,/href="\/en\/json-formatter\/"/);
+});
+
+
+test("AI Cost Lab notices appear only on the three billing tools in every built locale",async()=>{
+  const { JSDOM } = await import("jsdom");
+  const aiSlugs = ["codex-plan-cost", "codex-reset-timer", "codex-credit-estimator"];
+  assert.deepEqual(tools.filter(tool=>tool.category==="ai").map(tool=>tool.slug),aiSlugs);
+  for(const locale of locales){
+    const catalog = new JSDOM(await readFile(`dist/${locale}/index.html`,"utf8"));
+    try {
+      for(const tool of tools){
+        const card = catalog.window.document.querySelector(`article a[href="/${locale}/${tool.slug}/"]`).closest("article");
+        const isAi = aiSlugs.includes(tool.slug);
+        assert.equal(card.querySelector(".time-sensitive")?.textContent ?? null,isAi ? copy[locale].timeSensitive : null);
+        if(isAi) assert.equal(card.querySelector(".category").textContent,copy[locale].ai);
+        const html = await readFile(`dist/${locale}/${tool.slug}/index.html`,"utf8");
+        const page = new JSDOM(html);
+        try {
+          assert.equal(page.window.document.querySelector(".time-sensitive")?.textContent ?? null,isAi ? copy[locale].timeSensitive : null);
+          if(isAi) assert.equal(page.window.document.querySelector(".category").textContent,copy[locale].ai);
+        } finally { page.window.close(); }
+      }
+    } finally { catalog.window.close(); }
+  }
 });
