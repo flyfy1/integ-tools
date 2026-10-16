@@ -11,7 +11,7 @@
     "prebuild": "node scripts/generate-build-version.mjs flyfy1/integ-tools tools.integ.life public/build-version.json",
     "build": "vite build && node scripts/generate-pages.mjs",
     "preview": "vite preview",
-    "test": "npm run build && node --test tests/*.test.mjs",
+    "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
     "lint": "eslint src scripts --max-warnings=0"
   },
   "dependencies": {

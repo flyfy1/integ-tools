@@ -34,7 +34,10 @@ test('all localized routes mount with the already-loaded comments SDK', async ()
     await act(async () => root.render(createElement(App)));
     for (const locale of locales) {
       await navigate(`/${locale}/`);
-      assert.equal(document.querySelectorAll('.catalog article').length, tools.length);
+      assert.equal(document.querySelectorAll('.catalog article').length, 65);
+      assert.equal(document.querySelectorAll('.card-category svg[aria-hidden="true"]').length, 65);
+      assert.equal(document.querySelectorAll('.trust-column svg[aria-hidden="true"]').length, 3);
+      assert.equal(document.querySelector('.hero-art').getAttribute('alt'), '');
       const t = copy[locale];
       const aiTools = tools.filter(tool => tool.category === 'ai');
       assert.equal(aiTools.length, 3);
@@ -48,10 +51,19 @@ test('all localized routes mount with the already-loaded comments SDK', async ()
         for (const [index, card] of cards.entries()) {
           const entry = expected[index];
           assert.equal(card.querySelector('.category').textContent, t[entry.category]);
+          assert.equal(card.dataset.category, entry.category);
+          assert.equal(card.querySelector('.category-icon svg').dataset.icon, entry.category);
+          assert.ok(card.querySelector('.tool-link svg[data-icon="arrow"]'));
           assert.equal(card.querySelector('a').getAttribute('href'), `/${locale}/${entry.slug}/`);
           assert.equal(card.querySelector('.time-sensitive')?.textContent ?? null, entry.category === 'ai' ? t.timeSensitive : null);
         }
       }
+      const search = document.querySelector('.search input');
+      const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      await act(async () => { setValue.call(search, 'zzzz-no-matching-tool'); search.dispatchEvent(new window.Event('input', { bubbles: true })); });
+      assert.equal(document.querySelectorAll('.catalog article').length, 0);
+      await act(async () => { setValue.call(search, ''); search.dispatchEvent(new window.Event('input', { bubbles: true })); });
+      assert.equal(document.querySelectorAll('.catalog article').length, 65);
       for (const tool of tools) {
         await navigate(`/${locale}/${tool.slug}/`);
         assert.equal(document.querySelector('.tool-hero .time-sensitive')?.textContent ?? null, tool.category === 'ai' ? t.timeSensitive : null);

@@ -3,6 +3,8 @@ import { tools } from "../src/tools.ts";
 import { locales, copy } from "../src/i18n.ts";
 import { localizedDescription, localizedName } from "../src/toolLocales.ts";
 
+import { iconMarkup } from "../src/icons.ts";
+
 const base="https://tools.integ.life";
 const template=await readFile("dist/index.html","utf8");
 const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
@@ -10,7 +12,8 @@ const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;")
 const languageNames = { en: "English", zh: "中文", es: "Español", hi: "हिन्दी", ar: "العربية", ja: "日本語", id: "Bahasa Indonesia" };
 const aiNotice = (tool, locale) => tool.category === "ai" ? `<p class="note time-sensitive">${esc(copy[locale].timeSensitive)}</p>` : "";
 const aiCategory = (tool, locale) => tool.category === "ai" ? `<span class="category">${esc(copy[locale].ai)}</span>` : "";
-const catalogMarkup = locale => `<main class="il-catalog-page" data-static-catalog="${locale}"><section class="hero"><h1>${esc(copy[locale].name)}</h1><p>${esc(copy[locale].intro)}</p><p>${tools.length} ${esc(copy[locale].toolCount)}</p><nav aria-label="${esc(copy[locale].language)}">${locales.map(l=>`<a href="/${l}/" lang="${l}">${languageNames[l]}</a>`).join(" · ")}</nav></section><section class="catalog"><h2>${esc(copy[locale].browse)}</h2><div class="grid">${tools.map(tool=>`<article>${aiCategory(tool,locale)}<h3><a href="/${locale}/${tool.slug}/">${esc(localizedName(tool,locale))}</a></h3><p>${esc(localizedDescription(tool,locale))}</p>${aiNotice(tool,locale)}</article>`).join("")}</div></section></main>`;
+const catalogMarkup = locale => `<main class="il-catalog-page" data-static-catalog="${locale}"><section class="hero"><div class="hero-copy"><h1>${esc(copy[locale].name)}</h1><p>${esc(copy[locale].intro)}</p><p>${tools.length} ${esc(copy[locale].toolCount)}</p><nav aria-label="${esc(copy[locale].language)}">${locales.map(l=>`<a href="/${l}/" lang="${l}">${languageNames[l]}</a>`).join(" · ")}</nav></div><img class="hero-art" src="/tools-hero.webp" width="900" height="600" alt="" fetchpriority="high"/></section><section class="catalog"><h2>${esc(copy[locale].browse)}</h2><div class="grid">${tools.map(tool=>`<article data-category="${tool.category}"><div class="card-category"><span class="category-icon">${iconMarkup(tool.category)}</span><span class="category">${esc(copy[locale][tool.category])}</span></div><h3>${esc(localizedName(tool,locale))}</h3><p>${esc(localizedDescription(tool,locale))}</p>${aiNotice(tool,locale)}<a class="tool-link" href="/${locale}/${tool.slug}/">${esc(copy[locale].open)}${iconMarkup("arrow")}</a></article>`).join("")}</div></section><section class="privacy"><div><p class="eyebrow">LOCAL-FIRST</p><h2>${esc(copy[locale].privacyTitle)}</h2><p>${esc(copy[locale].privacyBody)}</p></div><div class="trust-columns">${[["local",copy[locale].trustLocal],["account",copy[locale].noAccounts],["tracking",copy[locale].noTracking]].map(([icon,label])=>`<div class="trust-column">${iconMarkup(icon)}<strong>${esc(label)}</strong></div>`).join("")}</div></section></main>`;
+
 const pages=[];
 const modified=new Date().toISOString().slice(0,10);
 for(const locale of locales){

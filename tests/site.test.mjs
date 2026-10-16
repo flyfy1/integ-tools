@@ -12,7 +12,12 @@ test("catalogs are readable and navigable before JavaScript runs",async()=>{
     const dom=new (await import("jsdom")).JSDOM(html);
     const main=dom.window.document.querySelector("#root main");
     assert.ok(main,`Missing initial catalog for ${locale}`);
-    assert.equal(main.querySelectorAll("article").length,tools.length);
+    assert.equal(main.querySelectorAll("article").length,65);
+    assert.equal(main.querySelectorAll('.category-icon svg[aria-hidden="true"]').length,65);
+    assert.equal(main.querySelectorAll('.tool-link svg[data-icon="arrow"]').length,65);
+    assert.equal(main.querySelectorAll('.trust-column svg[aria-hidden="true"]').length,3);
+    assert.equal(main.querySelector('.hero-art').getAttribute('alt'),'');
+    assert.ok((await stat('dist/tools-hero.webp')).size <= 120 * 1024);
     for(const tool of tools) assert.ok(main.querySelector(`a[href="/${locale}/${tool.slug}/"]`),`Missing ${locale}/${tool.slug}`);
     for(const language of locales) assert.ok(main.querySelector(`nav a[href="/${language}/"]`));
     assert.ok(!main.closest("noscript"),"Catalog must be present before JS starts");
