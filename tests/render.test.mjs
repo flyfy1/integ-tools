@@ -106,6 +106,6 @@ test('all localized routes mount with the already-loaded comments SDK', async ()
     assert.equal(document.documentElement.dataset.integTheme, 'dark');
     assert.equal(localStorage.getItem('integ-ui.appearance'), 'dark');
     assert.equal(document.querySelector('textarea[readonly]').value, beforeAppearance);
-    assert.equal(document.querySelector('[data-ui-version]').dataset.uiVersion, '0.5.0');
+    assert.equal(document.querySelector('[data-ui-version]').dataset.uiVersion, '0.6.0');
   } finally { await act(async () => root.unmount()); dom.window.close(); }
 });
